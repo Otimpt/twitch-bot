@@ -81,6 +81,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. Copie Client ID e Client Secret
 4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
 
+
 ## Permissões Necessárias
 
 Ao convidar o bot para o servidor, conceda pelo menos as seguintes permissões:
