@@ -13,6 +13,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Monitoramento automático de novos clips
 - Postagem automática no Discord
 - Configuração por servidor
+- Checagem a cada 5 minutos
 
 ## Comandos
 
@@ -26,6 +27,12 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ### Twitch
 - `/twitch_setup canal_twitch #canal_discord` - Configura monitoramento
 - `/twitch_status` - Mostra status do monitoramento
+
+#### Como funciona
+1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
+2. A cada 5 minutos o bot consulta a API da Twitch em busca de novos clips do canal configurado.
+3. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades
 - `/ping` - Verifica latência do bot
@@ -41,7 +48,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
-   - Preencha com suas credenciais
+   - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
 
 4. **Execute o bot:**
    ```bash
@@ -66,21 +73,32 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 1. Acesse https://discord.com/developers/applications
 2. Crie uma nova aplicação
 3. Vá em "Bot" e copie o token
+4. Defina esse valor em `DISCORD_TOKEN`
 
 ### Twitch
 1. Acesse https://dev.twitch.tv/console
 2. Registre uma nova aplicação
 3. Copie Client ID e Client Secret
+4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+
+## Permissões Necessárias
+
+Ao convidar o bot para o servidor, conceda pelo menos as seguintes permissões:
+- **Ver Canais**
+- **Enviar Mensagens**
+- **Inserir Links** (Embed Links)
+- **Ler Histórico de Mensagens** (opcional, mas recomendado)
+- **Usar Comandos de Aplicação**
+
 
 ## Estrutura do Projeto
 
 ```
 bot-discord/
-├── bot.py              # Código principal do bot
-├── requirements.txt    # Dependências Python
-├── .env.example       # Exemplo de variáveis de ambiente
-├── README.md          # Este arquivo
-└── .gitignore         # Arquivos ignorados pelo Git
+├── bot.py            # Código principal do bot
+├── requirements.txt  # Dependências Python
+├── .env.example      # Exemplo de variáveis de ambiente
+└── README.md         # Este arquivo
 ```
 
 ## Contribuição
