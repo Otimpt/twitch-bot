@@ -396,11 +396,23 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100)
 
 
 def clip_video_url(thumbnail_url: str) -> str:
-    """Converte a URL do thumbnail em URL de vídeo MP4."""
+    """Converte a URL do thumbnail em URL de vídeo MP4.
+
+    A Twitch usa diferentes sufixos como ``-preview`` ou ``-social`` nos
+    thumbnails. Esta função remove qualquer sufixo conhecido e gera a URL do
+    vídeo em MP4.
+    """
     if not thumbnail_url:
         return None
-    base = thumbnail_url.split('-preview')[0]
-    return base + '.mp4'
+
+    # Descarta parâmetros da query
+    clean = thumbnail_url.split("?")[0]
+
+    # Remove sufixos como "-preview-480x272.jpg" ou "-480x272.jpg"
+    base = re.sub(r"-(preview|social).*", "", clean)
+    base = re.sub(r"-\d+x\d+\.jpg$", "", base)
+
+    return base + ".mp4"
 
 @bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips da Twitch")
 async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, canal_discord: discord.TextChannel):
@@ -449,11 +461,15 @@ async def check_twitch_clips():
     # enquanto a iteração estiver em andamento
     for server_id, config in list(twitch_configs.items()):
         try:
+            print(
+                f"[DEBUG] Checando clips para {config['username']} em {datetime.now(timezone.utc).isoformat()}"
+            )
             started_at = last_check_time.get(
                 server_id,
                 datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
             ) - timedelta(seconds=CLIP_API_LAG_SECONDS)
             clips = await get_latest_clips(config['broadcaster_id'], started_at)
+            print(f"[DEBUG] {len(clips)} clip(s) encontrados")
 
             if server_id not in last_clips:
                 last_clips[server_id] = set()
@@ -506,8 +522,10 @@ async def check_twitch_clips():
                             embed.set_image(url=clip['thumbnail_url'])
 
                         if file:
-                            await channel.send(embed=embed, file=file)
+                            print(f"[DEBUG] Enviando vídeo do clip {clip_id}")
+                            await channel.send(content=clip['url'], embed=embed, file=file)
                         else:
+                            print(f"[DEBUG] Enviando link do clip {clip_id}")
                             await channel.send(content=clip['url'], embed=embed)
 
                     last_clips[server_id].add(clip_id)
