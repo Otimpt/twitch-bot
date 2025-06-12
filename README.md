@@ -13,7 +13,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Monitoramento automático de novos clips
 - Postagem automática no Discord
 - Configuração por servidor
-- Checagem a cada 30 segundos (configurável)
+- Checagem a cada 15 segundos (configurável)
 
 ## Comandos
 
@@ -30,7 +30,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
-2. A cada 30 segundos (por padrão) o bot consulta a API da Twitch em busca de novos clips do canal configurado.
+2. A cada 15 segundos (por padrão) o bot consulta a API da Twitch em busca de novos clips do canal configurado.
 3. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` e compara horários em UTC, garantindo que até clips feitos segundos atrás sejam detectados sem repetir conteúdo antigo.
 4. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
 5. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
@@ -53,7 +53,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    - Copie `.env.example` para `.env`
    - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
    - (Opcional) Ajuste `CLIP_LOOKBACK_HOURS` para definir quantas horas de clips recentes serão enviados ao configurar
-   - (Opcional) Ajuste `CLIP_CHECK_SECONDS` para controlar o intervalo de verificação de novos clips
+   - (Opcional) Ajuste `CLIP_CHECK_SECONDS` para controlar o intervalo de verificação de novos clips (padrão 15s)
    - (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para esconder views, criador e data dos embeds
 
 4. **Execute o bot:**
@@ -91,7 +91,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 1. Acesse https://dev.twitch.tv/console
 2. Registre uma nova aplicação
 6. (Opcional) Defina `CLIP_LOOKBACK_HOURS` para controlar quantas horas de clips recentes serão enviados ao configurar
-7. (Opcional) Defina `CLIP_CHECK_SECONDS` para ajustar o intervalo de checagem de novos clips
+7. (Opcional) Defina `CLIP_CHECK_SECONDS` para ajustar o intervalo de checagem de novos clips (padrão 15s)
 8. (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para ocultar views, criador e data dos embeds
 
 3. Se o console mostrar apenas credenciais para OAuth com PKCE (sem Client Secret), abra a página da aplicação e procure o campo **OAuth Client Type** ou **Application Type**. Selecione **Confidential** (também chamado de Server‑side) e salve.

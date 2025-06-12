@@ -33,7 +33,7 @@ last_check_time = {}
 # Quantas horas de clips anteriores devem ser enviados ao configurar
 CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
 # Intervalo entre verificações da Twitch em segundos
-CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 30))
+CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 15))
 # Exibir views, criador e data nos embeds de clips
 CLIP_SHOW_DETAILS = os.environ.get("CLIP_SHOW_DETAILS", "1") != "0"
 
@@ -386,7 +386,7 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
 
     await interaction.followup.send(embed=embed)
 
-@tasks.loop(seconds=CLIP_CHECK_SECONDS)
+@tasks.loop(seconds=CLIP_CHECK_SECONDS, reconnect=True)
 async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
     for server_id, config in twitch_configs.items():
