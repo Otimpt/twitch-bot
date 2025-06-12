@@ -254,7 +254,10 @@ async def jogos(interaction: discord.Interaction):
         response = requests.post(url, data=params, timeout=10)
         if response.status_code == 200:
             return response.json()['access_token']
-        print(f"Falha ao obter token: {response.status_code} {response.text}")
+        else:
+            print(
+                f"Falha ao obter token: {response.status_code} {response.text}"
+            )
     except requests.RequestException as e:
         response = requests.get(
             f"https://api.twitch.tv/helix/users?login={username}",
