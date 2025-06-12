@@ -78,8 +78,9 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ### Twitch
 1. Acesse https://dev.twitch.tv/console
 2. Registre uma nova aplicação
-3. Copie Client ID e Client Secret
-4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+3. Se o cadastro gerar apenas credenciais para OAuth com PKCE (sem Client Secret), mude o tipo da aplicação para **Server-side** (Confidential). Assim, a página "Manage" exibirá o botão **New Secret**.
+4. Copie Client ID e o Client Secret gerado
+5. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
 
 
 ## Permissões Necessárias
