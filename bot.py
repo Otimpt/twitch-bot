@@ -252,26 +252,24 @@ async def jogos(interaction: discord.Interaction):
     )
     embed.add_field(
         response = requests.post(url, data=params, timeout=10)
-        if response.status_code == 200:
-            return response.json()['access_token']
-        else:
-            print(
-                f"Falha ao obter token: {response.status_code} {response.text}"
-            )
+        response.raise_for_status()
     except requests.RequestException as e:
-        response = requests.get(
+        return None
+
+    return response.json().get('access_token')
             f"https://api.twitch.tv/helix/users?login={username}",
             headers=headers,
             timeout=10
         )
-        if response.status_code == 200:
-            data = response.json()
-            if data['data']:
-                return data['data'][0]['id']
-            print("Canal não encontrado na resposta da API.")
-        else:
-            print(f"Erro ao consultar usuários: {response.status_code} {response.text}")
+        response.raise_for_status()
     except requests.RequestException as e:
+        return None
+
+    data = response.json()
+    if data.get('data'):
+        return data['data'][0]['id']
+
+    print("Canal não encontrado na resposta da API.")
     """Obtém os clips mais recentes de um canal"""
     token = await get_twitch_token()
     if not token:
