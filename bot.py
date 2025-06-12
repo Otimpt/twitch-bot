@@ -34,6 +34,8 @@ last_check_time = {}
 CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
 # Intervalo entre verificações da Twitch em segundos
 CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 30))
+# Exibir views, criador e data nos embeds de clips
+CLIP_SHOW_DETAILS = os.environ.get("CLIP_SHOW_DETAILS", "1") != "0"
 
 class ChessGame:
     def __init__(self, player1, player2):
@@ -398,6 +400,7 @@ async def check_twitch_clips():
             if server_id not in last_check_time:
                 last_check_time[server_id] = datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS)
 
+            latest_time = last_check_time[server_id]
             for clip in clips:
                 clip_id = clip['id']
                 created_at = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
@@ -411,11 +414,12 @@ async def check_twitch_clips():
                             color=0x9146ff
                         )
                         embed.add_field(name="📺 Canal", value=config['username'], inline=True)
-                        embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
+                        if CLIP_SHOW_DETAILS:
+                            embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
+                            embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
+                            embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
                         embed.add_field(name="⏱️ Duração", value=f"{clip['duration']}s", inline=True)
                         embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
-                        embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
-                        embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
 
                         if clip.get('thumbnail_url'):
                             embed.set_image(url=clip['thumbnail_url'])
@@ -424,8 +428,14 @@ async def check_twitch_clips():
 
                     last_clips[server_id].add(clip_id)
 
+                if created_at > latest_time:
+                    latest_time = created_at
+
             # Atualiza o momento da última verificação
-            last_check_time[server_id] = datetime.utcnow()
+            if latest_time == last_check_time[server_id]:
+                last_check_time[server_id] = datetime.utcnow()
+            else:
+                last_check_time[server_id] = latest_time
 
             # Mantém apenas os últimos 50 clips na memória
             if len(last_clips[server_id]) > 50:

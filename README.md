@@ -54,6 +54,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
    - (Opcional) Ajuste `CLIP_LOOKBACK_HOURS` para definir quantas horas de clips recentes serão enviados ao configurar
    - (Opcional) Ajuste `CLIP_CHECK_SECONDS` para controlar o intervalo de verificação de novos clips
+   - (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para esconder views, criador e data dos embeds
 
 4. **Execute o bot:**
    ```bash
@@ -91,6 +92,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 2. Registre uma nova aplicação
 6. (Opcional) Defina `CLIP_LOOKBACK_HOURS` para controlar quantas horas de clips recentes serão enviados ao configurar
 7. (Opcional) Defina `CLIP_CHECK_SECONDS` para ajustar o intervalo de checagem de novos clips
+8. (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para ocultar views, criador e data dos embeds
 
 3. Se o console mostrar apenas credenciais para OAuth com PKCE (sem Client Secret), abra a página da aplicação e procure o campo **OAuth Client Type** ou **Application Type**. Selecione **Confidential** (também chamado de Server‑side) e salve.
 4. Após salvar essa configuração, o botão **New Secret** aparecerá na aba "Manage". Gere o segredo e anote o valor.
