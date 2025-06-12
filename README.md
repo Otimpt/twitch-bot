@@ -31,8 +31,9 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
 2. A cada 5 minutos o bot consulta a API da Twitch em busca de novos clips do canal configurado.
-3. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
-4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
+3. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados.
+4. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+5. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades
 - `/ping` - Verifica latência do bot
@@ -51,6 +52,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
    - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
+   - (Opcional) Ajuste `CLIP_LOOKBACK_HOURS` para definir quantas horas de clips recentes serão enviados ao configurar
 
 4. **Execute o bot:**
    ```bash
@@ -86,6 +88,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ### Twitch
 1. Acesse https://dev.twitch.tv/console
 2. Registre uma nova aplicação
+6. (Opcional) Defina `CLIP_LOOKBACK_HOURS` para controlar quantas horas de clips recentes serão enviados ao configurar
 
 3. Se o console mostrar apenas credenciais para OAuth com PKCE (sem Client Secret), abra a página da aplicação e procure o campo **OAuth Client Type** ou **Application Type**. Selecione **Confidential** (também chamado de Server‑side) e salve.
 4. Após salvar essa configuração, o botão **New Secret** aparecerá na aba "Manage". Gere o segredo e anote o valor.

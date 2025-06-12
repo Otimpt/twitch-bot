@@ -5,7 +5,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 import chess
 import chess.svg
 from io import BytesIO
@@ -28,6 +28,10 @@ TWITCH_SECRET = os.environ.get("TWITCH_SECRET")
 active_games = {}
 twitch_configs = {}
 last_clips = {}
+last_check_time = {}
+
+# Quantas horas de clips anteriores devem ser enviados ao configurar
+CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
 
 class ChessGame:
     def __init__(self, player1, player2):
@@ -348,8 +352,9 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
         'discord_channel': canal_discord.id
     }
 
-    # Inicializa o controle de clips
+    # Inicializa o controle de clips e a referência de tempo
     last_clips[server_id] = set()
+    last_check_time[server_id] = datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS)
 
     embed = discord.Embed(
         title="📺 Twitch Configurado!",
@@ -366,15 +371,18 @@ async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
     for server_id, config in twitch_configs.items():
         try:
-            clips = await get_latest_clips(config['broadcaster_id'], 3)
+            clips = await get_latest_clips(config['broadcaster_id'], 5)
 
             if server_id not in last_clips:
                 last_clips[server_id] = set()
+            if server_id not in last_check_time:
+                last_check_time[server_id] = datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS)
 
-            for clip in clips:
+            # Processa do mais antigo para o mais novo para manter a ordem
+            for clip in reversed(clips):
                 clip_id = clip['id']
-                if clip_id not in last_clips[server_id]:
-                    # Novo clip encontrado!
+                created_at = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
+                if created_at > last_check_time[server_id] and clip_id not in last_clips[server_id]:
                     channel = bot.get_channel(config['discord_channel'])
                     if channel:
                         embed = discord.Embed(
@@ -396,6 +404,9 @@ async def check_twitch_clips():
                         await channel.send(embed=embed)
 
                     last_clips[server_id].add(clip_id)
+
+            # Atualiza o momento da última verificação
+            last_check_time[server_id] = datetime.utcnow()
 
             # Mantém apenas os últimos 50 clips na memória
             if len(last_clips[server_id]) > 50:
