@@ -306,8 +306,13 @@ async def get_broadcaster_id(username):
         print(f"Erro ao obter broadcaster ID: {e}")
     return None
 
-async def get_latest_clips(broadcaster_id, limit=5):
-    """Obtém os clips mais recentes de um canal"""
+async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=20):
+    """Obtém clips criados após `started_at`.
+
+    Twitch retorna os clips ordenados por popularidade, então filtramos
+    manualmente pelo horário de criação para garantir que apenas os
+    realmente recentes sejam processados.
+    """
     token = await get_twitch_token()
     if not token:
         return []
@@ -318,10 +323,21 @@ async def get_latest_clips(broadcaster_id, limit=5):
     }
 
     try:
-        url = f"https://api.twitch.tv/helix/clips?broadcaster_id={broadcaster_id}&first={limit}"
-        response = requests.get(url, headers=headers)
+        if ended_at is None:
+            ended_at = datetime.utcnow()
+
+        params = {
+            'broadcaster_id': broadcaster_id,
+            'first': limit,
+            'started_at': started_at.isoformat(timespec='seconds') + 'Z',
+            'ended_at': ended_at.isoformat(timespec='seconds') + 'Z'
+        }
+
+        response = requests.get("https://api.twitch.tv/helix/clips", params=params, headers=headers)
         if response.status_code == 200:
-            return response.json()['data']
+            clips = response.json().get('data', [])
+            clips.sort(key=lambda c: c['created_at'])
+            return clips
     except Exception as e:
         print(f"Erro ao obter clips: {e}")
     return []
@@ -371,15 +387,16 @@ async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
     for server_id, config in twitch_configs.items():
         try:
-            clips = await get_latest_clips(config['broadcaster_id'], 5)
+            started_at = last_check_time.get(server_id,
+                                           datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS))
+            clips = await get_latest_clips(config['broadcaster_id'], started_at)
 
             if server_id not in last_clips:
                 last_clips[server_id] = set()
             if server_id not in last_check_time:
                 last_check_time[server_id] = datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS)
 
-            # Processa do mais antigo para o mais novo para manter a ordem
-            for clip in reversed(clips):
+            for clip in clips:
                 clip_id = clip['id']
                 created_at = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
                 if created_at > last_check_time[server_id] and clip_id not in last_clips[server_id]:
