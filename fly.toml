@@ -1,5 +1,7 @@
 app = "twitch-bot"
 primary_region = "iad"
 
+# Use the Dockerfile so the image builds with Python preinstalled
+# and skips the Nixpacks builder that may fail with "mise" errors
 [build]
   dockerfile = "Dockerfile"

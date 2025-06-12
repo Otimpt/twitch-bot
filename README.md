@@ -89,10 +89,12 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    ```
    ou defina manualmente com `fly secrets set VAR=valor`
 5. Por fim, execute `fly deploy` para enviar o contêiner ao Fly.io.
-   Se o build falhar com mensagens do **mise** ao tentar instalar o Python,
-   certifique-se de que o `fly.toml` contenha a seção `[build]` apontando para o
-   `Dockerfile` e use `fly deploy --dockerfile Dockerfile` para forçar o uso do
-   contêiner em vez do Nixpacks.
+   - O arquivo `fly.toml` já inclui a seção `[build]` apontando para o
+     `Dockerfile`, garantindo que a imagem seja montada com o Docker e não com o
+     Nixpacks.
+   - Caso o build falhe com mensagens do **mise** ao tentar instalar o Python,
+     rode `fly deploy --dockerfile Dockerfile` para forçar explicitamente o uso
+     do Dockerfile e evitar esses erros.
 
 ## Credenciais Necessárias
 
