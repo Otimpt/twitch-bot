@@ -32,6 +32,8 @@ last_check_time = {}
 
 # Quantas horas de clips anteriores devem ser enviados ao configurar
 CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
+# Intervalo entre verificações da Twitch em segundos
+CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 30))
 
 class ChessGame:
     def __init__(self, player1, player2):
@@ -378,11 +380,11 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
         color=0x9146ff
     )
     embed.add_field(name="✅ Status", value="Monitoramento ativo", inline=False)
-    embed.add_field(name="🔄 Frequência", value="Verifica novos clips a cada 5 minutos", inline=False)
+    embed.add_field(name="🔄 Frequência", value=f"Verifica novos clips a cada {CLIP_CHECK_SECONDS}s", inline=False)
 
     await interaction.followup.send(embed=embed)
 
-@tasks.loop(minutes=5)
+@tasks.loop(seconds=CLIP_CHECK_SECONDS)
 async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
     for server_id, config in twitch_configs.items():
@@ -453,7 +455,7 @@ async def twitch_status(interaction: discord.Interaction):
         embed.add_field(name="📺 Canal", value=config['username'], inline=True)
         embed.add_field(name="💬 Canal Discord", value=channel.mention if channel else "Canal não encontrado", inline=True)
         embed.add_field(name="✅ Status", value="Ativo", inline=True)
-        embed.add_field(name="🔄 Última verificação", value="A cada 5 minutos", inline=True)
+        embed.add_field(name="🔄 Última verificação", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=True)
         embed.add_field(name="📊 Clips monitorados", value=len(last_clips.get(server_id, [])), inline=True)
 
     await interaction.response.send_message(embed=embed)
