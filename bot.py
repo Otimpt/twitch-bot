@@ -35,6 +35,8 @@ last_check_time = {}
 CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
 # Intervalo entre verificações da Twitch em segundos
 CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 15))
+# Quantas páginas da API devem ser buscadas a cada verificação
+CLIP_MAX_PAGES = int(os.environ.get("CLIP_MAX_PAGES", 1))
 # Exibir views, criador e data nos embeds de clips
 CLIP_SHOW_DETAILS = os.environ.get("CLIP_SHOW_DETAILS", "1") != "0"
 # Segundos extras para compensar atrasos da API
@@ -329,11 +331,18 @@ async def get_broadcaster_id(username):
         print(f"Erro ao obter broadcaster ID: {e}")
     return None
 
-async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100):
-    """Obtém os clips mais recentes criados após `started_at`.
+async def get_latest_clips(
+    broadcaster_id,
+    started_at,
+    ended_at=None,
+    limit=100,
+    max_pages=CLIP_MAX_PAGES,
+):
+    """Obtém os clips mais recentes criados após ``started_at``.
 
-    Apenas a primeira página da API é consultada e os resultados são
-    ordenados do mais novo para o mais antigo.
+    Se ``max_pages`` for maior que ``1``, a função percorre várias páginas da
+    API até que não haja mais resultados ou o limite seja alcançado. Os clips
+    retornados são ordenados do mais novo para o mais antigo.
     """
     token = await get_twitch_token()
     if not token:
@@ -348,32 +357,43 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100)
         if ended_at is None:
             ended_at = datetime.now(timezone.utc)
 
-        params = {
-            'broadcaster_id': broadcaster_id,
-            'first': limit,
-            'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-            'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-        }
+        all_clips = []
+        cursor = None
+        pages = 0
 
-        response = requests.get(
-            "https://api.twitch.tv/helix/clips",
-            params=params,
-            headers=headers,
-            timeout=CLIP_API_TIMEOUT,
-        )
-        if response.status_code != 200:
-            print(
-                f"Erro ao obter clips: {response.status_code} {response.text}"
+        while pages < max_pages:
+            params = {
+                'broadcaster_id': broadcaster_id,
+                'first': limit,
+                'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+                'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+            }
+            if cursor:
+                params['after'] = cursor
+
+            response = requests.get(
+                "https://api.twitch.tv/helix/clips",
+                params=params,
+                headers=headers,
+                timeout=CLIP_API_TIMEOUT,
             )
-            return []
+            if response.status_code != 200:
+                print(
+                    f"Erro ao obter clips: {response.status_code} {response.text}"
+                )
+                break
 
-        data = response.json()
-        clips = data.get('data', [])
+            data = response.json()
+            clips = data.get('data', [])
+            all_clips.extend(clips)
 
-        # Process clips from the mais recente to the mais antigo
-        # so new items são enviados first
-        clips.sort(key=lambda c: c['created_at'], reverse=True)
-        return clips
+            cursor = data.get('pagination', {}).get('cursor')
+            if not cursor or not clips:
+                break
+            pages += 1
+
+        all_clips.sort(key=lambda c: c['created_at'], reverse=True)
+        return all_clips
     except Exception as e:
         print(f"Erro ao obter clips: {e}")
     return []
@@ -452,7 +472,9 @@ async def check_twitch_clips():
                 server_id,
                 datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
             ) - timedelta(seconds=CLIP_API_LAG_SECONDS)
-            clips = await get_latest_clips(config['broadcaster_id'], started_at)
+            clips = await get_latest_clips(
+                config['broadcaster_id'], started_at, max_pages=CLIP_MAX_PAGES
+            )
             print(f"[DEBUG] {len(clips)} clip(s) encontrados")
 
             if server_id not in last_clips:
@@ -508,12 +530,11 @@ async def check_twitch_clips():
 
                     last_clips[server_id].add(clip_id)
 
-                if created_at > latest_time:
+                if created_at >= latest_time:
                     latest_time = created_at
 
-            # Avança o marcador de tempo apenas se novos clips foram detectados
-            if latest_time > last_check_time[server_id]:
-                last_check_time[server_id] = latest_time
+            # Atualiza o horário do último clip processado
+            last_check_time[server_id] = max(last_check_time[server_id], latest_time)
 
             # Mantém apenas os últimos 50 clips na memória
             if len(last_clips[server_id]) > 50:
