@@ -1,28 +1,13 @@
 import discord
 from discord.ext import commands, tasks
 import asyncio
-import aiohttp
-import re
+import requests
+import json
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+import base64
 
-import chess
-import chess.svg
-from io import BytesIO
-
-# Configurações do bot
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# Carrega variáveis definidas em um arquivo .env (opcional)
-load_dotenv()
-
-# Variáveis de ambiente
-DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
-TWITCH_CLIENT_ID = os.environ.get("TWITCH_CLIENT_ID")
-TWITCH_SECRET = os.environ.get("TWITCH_SECRET")
 
 # Armazenamento de dados (em produção, use um banco de dados)
 active_games = {}
@@ -266,200 +251,52 @@ async def jogos(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
-        name="🔴 Damas", 
-        value="Em desenvolvimento... 🚧", 
-        inline=False
-    )
-    embed.add_field(
-        name="🎯 Outros jogos", 
-        value="Mais jogos serão adicionados em breve!", 
-        inline=False
-    )
+        response = requests.post(url, params=params)
+        if response.status_code == 200:
+            return response.json()['access_token']
 
-    await interaction.response.send_message(embed=embed)
-
-# ==================== INTEGRAÇÃO TWITCH ====================
-
-async def get_twitch_token():
-    """Obtém token de acesso da Twitch"""
-    url = "https://id.twitch.tv/oauth2/token"
-    params = {
-        'client_id': TWITCH_CLIENT_ID,
-        'client_secret': TWITCH_SECRET,
-        'grant_type': 'client_credentials'
-    }
-
-    try:
-        timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data['access_token']
-                else:
-                    text = await response.text()
-                    print(
-                        f"Erro ao obter token: {response.status} {text}"
-                    )
-    except Exception as e:
-        print(f"Erro ao obter token da Twitch: {e}")
-    return None
-
-async def get_broadcaster_id(username):
-    """Obtém o ID do broadcaster pelo username"""
+        response = requests.get(f"https://api.twitch.tv/helix/users?login={username}", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            if data['data']:
+                return data['data'][0]['id']
+async def get_latest_clips(broadcaster_id, limit=5):
+    """Obtém os clips mais recentes de um canal"""
     token = await get_twitch_token()
     if not token:
-        return None
+        url = f"https://api.twitch.tv/helix/clips?broadcaster_id={broadcaster_id}&first={limit}"
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()['data']
+    # Inicializa o controle de clips
+    embed.add_field(name="🔄 Frequência", value="Verifica novos clips a cada 5 minutos", inline=False)
+@tasks.loop(minutes=5)
+    for server_id, config in twitch_configs.items():
+            clips = await get_latest_clips(config['broadcaster_id'], 3)
 
-    headers = {
-        'Client-ID': TWITCH_CLIENT_ID,
-        'Authorization': f'Bearer {token}'
-    }
 
-    try:
-        timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(
-                "https://api.twitch.tv/helix/users",
-                params={"login": username},
-                headers=headers,
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    if data.get("data"):
-                        return data["data"][0]["id"]
-                else:
-                    text = await response.text()
-                    print(
-                        f"Erro ao obter usuário: {response.status} {text}"
-                    )
-    except Exception as e:
-        print(f"Erro ao obter broadcaster ID: {e}")
-    return None
-
-async def get_latest_clips(
-    broadcaster_id,
-    started_at,
-    ended_at=None,
-    limit=100,
-    max_pages=CLIP_MAX_PAGES,
-):
-    """Obtém os clips mais recentes criados após ``started_at``.
-
-    Se ``max_pages`` for maior que ``1``, a função percorre várias páginas da
-    API até que não haja mais resultados ou o limite seja alcançado. Os clips
-    retornados são ordenados do mais novo para o mais antigo.
-    """
-    token = await get_twitch_token()
-    if not token:
-        return []
-
-    headers = {
-        'Client-ID': TWITCH_CLIENT_ID,
-        'Authorization': f'Bearer {token}'
-    }
-
-    try:
-        if ended_at is None:
-            ended_at = datetime.now(timezone.utc)
-
-        all_clips = []
-        cursor = None
-        pages = 0
-        timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            while pages < max_pages:
-                params = {
-                    'broadcaster_id': broadcaster_id,
-                    'first': limit,
-                    'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-                    'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-                }
-                if cursor:
-                    params['after'] = cursor
-
-                async with session.get(
-                    "https://api.twitch.tv/helix/clips",
-                    params=params,
-                    headers=headers,
-                ) as response:
-                    if response.status != 200:
-                        text = await response.text()
-                        print(
-                            f"Erro ao obter clips: {response.status} {text}"
+                if clip_id not in last_clips[server_id]:
+                    # Novo clip encontrado!
+                        embed = discord.Embed(
+                            title="🎬 Novo Clip da Twitch!",
+                            description=f"**{clip['title']}**",
+                            url=clip['url'],
+                            color=0x9146ff
                         )
-                        break
+                        embed.add_field(name="📺 Canal", value=config['username'], inline=True)
+                        embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
+                        embed.add_field(name="⏱️ Duração", value=f"{clip['duration']}s", inline=True)
+                        embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
+                        embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
+                        embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
+                        if clip.get('thumbnail_url'):
+                            embed.set_image(url=clip['thumbnail_url'])
+                        await channel.send(embed=embed)
+                    last_clips[server_id].add(clip_id)
+        embed.add_field(name="🔄 Última verificação", value="A cada 5 minutos", inline=True)
 
-                    data = await response.json()
-                    clips = data.get('data', [])
-                    all_clips.extend(clips)
-
-                    cursor = data.get('pagination', {}).get('cursor')
-                    if not cursor or not clips:
-                        break
-                    pages += 1
-
-        # Ordena do mais antigo para o mais novo para processar em ordem cronológica
-        all_clips.sort(key=lambda c: c['created_at'])
-        return all_clips
-    except Exception as e:
-        print(f"Erro ao obter clips: {e}")
-    return []
-
-
-def clip_video_url(thumbnail_url: str) -> str:
-    """Converte a URL do thumbnail em URL de vídeo MP4.
-
-    A Twitch usa diferentes sufixos como ``-preview`` ou ``-social`` nos
-    thumbnails. Esta função remove qualquer sufixo conhecido e gera a URL do
-    vídeo em MP4.
-    """
-    if not thumbnail_url:
-        return None
-
-    # Descarta parâmetros da query
-    clean = thumbnail_url.split("?")[0]
-
-    # Remove sufixos como "-preview-480x272.jpg" ou "-480x272.jpg"
-    base = re.sub(r"-(preview|social).*", "", clean)
-    base = re.sub(r"-\d+x\d+\.jpg$", "", base)
-
-    return base + ".mp4"
-
-@bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips da Twitch")
-async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, canal_discord: discord.TextChannel):
-    await interaction.response.defer()
-
-    # Remove @ se o usuário incluiu
-    username = canal_twitch.replace('@', '').lower()
-
-    # Obtém o ID do broadcaster
-    broadcaster_id = await get_broadcaster_id(username)
-    if not broadcaster_id:
-        embed = discord.Embed(
-            title="❌ Erro",
-            description=f"Não foi possível encontrar o canal **{username}** na Twitch.",
-            color=0xff0000
-        )
-        await interaction.followup.send(embed=embed)
-        return
-
-    # Salva a configuração
-    server_id = interaction.guild.id
-    twitch_configs[server_id] = {
-        'username': username,
-        'broadcaster_id': broadcaster_id,
-        'discord_channel': canal_discord.id
-    }
-
-    # Inicializa o controle de clips e a referência de tempo
-    last_clips[server_id] = set()
-    last_check_time[server_id] = datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
-
-    embed = discord.Embed(
-        title="📺 Twitch Configurado!",
-        description=f"**Canal Twitch:** {username}\n**Canal Discord:** {canal_discord.mention}",
-        color=0x9146ff
+        print("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente!")
+    else:
     )
     embed.add_field(name="✅ Status", value="Monitoramento ativo", inline=False)
     embed.add_field(name="🔄 Frequência", value=f"Verifica novos clips a cada {CLIP_CHECK_SECONDS}s", inline=False)
