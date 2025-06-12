@@ -88,7 +88,11 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    fly secrets import < .env
    ```
    ou defina manualmente com `fly secrets set VAR=valor`
-5. Por fim, execute `fly deploy` para enviar o contêiner ao Fly.io
+5. Por fim, execute `fly deploy` para enviar o contêiner ao Fly.io.
+   Se o build falhar com mensagens do **mise** ao tentar instalar o Python,
+   certifique-se de que o `fly.toml` contenha a seção `[build]` apontando para o
+   `Dockerfile` e use `fly deploy --dockerfile Dockerfile` para forçar o uso do
+   contêiner em vez do Nixpacks.
 
 ## Credenciais Necessárias
 
