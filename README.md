@@ -14,7 +14,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Postagem automática no Discord
 - Configuração por servidor
 - Checagem a cada 15 segundos (configurável)
-- Consulta várias páginas da API para não perder clipes em canais grandes
+- Verifica apenas a primeira página da API, do mais novo para o mais antigo
 
 ## Comandos
 
@@ -32,11 +32,11 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
 2. A cada 15 segundos (padrão) o bot consulta a API da Twitch em busca de novos clips do canal configurado.
-3. Para compensar atrasos da API, o bot revisita os últimos `CLIP_API_LAG_SECONDS` segundos e também aceita clipes que apareçam um pouco antes do último horário conhecido. Assim, mesmo que a Twitch demore para listar um clip, ele não será perdido. O tempo máximo de espera de cada requisição pode ser ajustado via `CLIP_API_TIMEOUT` e várias páginas podem ser consultadas conforme `CLIP_MAX_PAGES` (1 apenas a primeira página).
+3. Para compensar atrasos da API, o bot revisita os últimos `CLIP_API_LAG_SECONDS` segundos e também aceita clipes que apareçam um pouco antes do último horário conhecido. Assim, mesmo que a Twitch demore para listar um clip, ele não será perdido. O tempo máximo de espera de cada requisição pode ser ajustado via `CLIP_API_TIMEOUT`. Apenas a primeira página de resultados é verificada.
 4. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` em UTC para detectar até clips feitos segundos atrás sem repetir conteúdo antigo.
 5. O horário do último clip processado só avança quando um clip realmente mais novo é encontrado, garantindo que itens atrasados ainda sejam considerados.
 6. Clips criados no mesmo segundo do último processado ou alguns segundos antes também são enviados, evitando lacunas.
-7. Sempre que um clip novo for encontrado, o bot publica o link do clip (o que faz o Discord incorporar o vídeo) junto de um embed com detalhes. Se `CLIP_ATTACH_VIDEO` estiver definido como `1`, o vídeo é baixado e anexado, mas o link também é enviado para manter o embed padrão do Discord.
+7. Sempre que um clip novo for encontrado, o bot envia o link do clip, o que faz o Discord gerar automaticamente a prévia em vídeo. As informações sobre views, autor e data são adicionadas no texto e, se `CLIP_ATTACH_VIDEO` estiver definido como `1`, o vídeo também é enviado como anexo.
 8. Os clips são enviados do mais novo para o mais antigo, reduzindo a espera por conteúdo recente.
 9. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 10. O monitoramento continua funcionando mesmo se `/twitch_setup` for executado novamente,
@@ -64,7 +64,6 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    - (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para esconder views, criador e data dos embeds
    - (Opcional) Ajuste `CLIP_API_LAG_SECONDS` para considerar atrasos da API (padrão 15s)
    - (Opcional) Ajuste `CLIP_API_TIMEOUT` para definir o tempo limite das requisições à API (padrão 10s)
-   - (Opcional) Ajuste `CLIP_MAX_PAGES` para limitar quantas páginas de clips são buscadas a cada verificação (padrão 1)
    - (Opcional) Defina `CLIP_ATTACH_VIDEO` como `1` para anexar o vídeo do clip no chat em vez de apenas o thumbnail
 
 4. **Execute o bot:**
@@ -115,8 +114,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 8. (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para ocultar views, criador e data dos embeds
 9. (Opcional) Ajuste `CLIP_API_LAG_SECONDS` para compensar possíveis atrasos da API (padrão 15s)
 10. (Opcional) Ajuste `CLIP_API_TIMEOUT` para definir o tempo limite das requisições (padrão 10s)
-11. (Opcional) Ajuste `CLIP_MAX_PAGES` para limitar quantas páginas de clips são buscadas a cada verificação (padrão 1)
-12. (Opcional) Defina `CLIP_ATTACH_VIDEO` como `1` para enviar o vídeo do clip como anexo (pode aumentar o uso de dados)
+11. (Opcional) Defina `CLIP_ATTACH_VIDEO` como `1` para enviar o vídeo do clip como anexo (pode aumentar o uso de dados)
 
 ## Permissões Necessárias
 

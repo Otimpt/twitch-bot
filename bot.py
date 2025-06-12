@@ -41,8 +41,6 @@ CLIP_SHOW_DETAILS = os.environ.get("CLIP_SHOW_DETAILS", "1") != "0"
 CLIP_API_LAG_SECONDS = int(os.environ.get("CLIP_API_LAG_SECONDS", 15))
 # Tempo limite das requisições HTTP
 CLIP_API_TIMEOUT = int(os.environ.get("CLIP_API_TIMEOUT", 10))
-# Quantidade de páginas a buscar por verificação
-CLIP_MAX_PAGES = int(os.environ.get("CLIP_MAX_PAGES", 1))
 # Enviar o vídeo do clip como anexo
 CLIP_ATTACH_VIDEO = os.environ.get("CLIP_ATTACH_VIDEO", "0") != "0"
 
@@ -332,11 +330,10 @@ async def get_broadcaster_id(username):
     return None
 
 async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100):
-    """Obtém clips criados após `started_at`.
+    """Obtém os clips mais recentes criados após `started_at`.
 
-    A Twitch retorna os clips ordenados por popularidade. Para evitar
-    perdas em canais movimentados, percorremos as páginas da API
-    da primeira até `CLIP_MAX_PAGES`.
+    Apenas a primeira página da API é consultada e os resultados são
+    ordenados do mais novo para o mais antigo.
     """
     token = await get_twitch_token()
     if not token:
@@ -358,33 +355,20 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100)
             'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
         }
 
-        clips = []
-        pages = 0
-        cursor = None
-
-        while pages < CLIP_MAX_PAGES:
-            if cursor:
-                params['after'] = cursor
-
-            response = requests.get(
-                "https://api.twitch.tv/helix/clips",
-                params=params,
-                headers=headers,
-                timeout=CLIP_API_TIMEOUT,
+        response = requests.get(
+            "https://api.twitch.tv/helix/clips",
+            params=params,
+            headers=headers,
+            timeout=CLIP_API_TIMEOUT,
+        )
+        if response.status_code != 200:
+            print(
+                f"Erro ao obter clips: {response.status_code} {response.text}"
             )
-            if response.status_code != 200:
-                print(
-                    f"Erro ao obter clips: {response.status_code} {response.text}"
-                )
-                break
+            return []
 
-            data = response.json()
-            clips.extend(data.get('data', []))
-            cursor = data.get('pagination', {}).get('cursor')
-            pages += 1
-
-            if not cursor:
-                break
+        data = response.json()
+        clips = data.get('data', [])
 
         # Process clips from the mais recente to the mais antigo
         # so new items são enviados first
@@ -492,19 +476,15 @@ async def check_twitch_clips():
                 ):
                     channel = bot.get_channel(config['discord_channel'])
                     if channel:
-                        embed = discord.Embed(
-                            title="🎬 Novo Clip da Twitch!",
-                            description=f"**{clip['title']}**",
-                            url=clip['url'],
-                            color=0x9146ff
-                        )
-                        embed.add_field(name="📺 Canal", value=config['username'], inline=True)
+                        message = f"{clip['url']}\n**{clip['title']}**"
+                        details = []
                         if CLIP_SHOW_DETAILS:
-                            embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
-                            embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
-                            embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
-                        embed.add_field(name="⏱️ Duração", value=f"{clip['duration']}s", inline=True)
-                        embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
+                            details.append(f"👀 {clip['view_count']} views")
+                            details.append(f"👤 {clip['creator_name']}")
+                            details.append(f"📅 {clip['created_at'][:10]}")
+                        details.append(f"⏱️ {clip['duration']}s")
+                        details.append(f"🎮 {clip.get('game_name', 'N/A')}")
+                        message += "\n" + " | ".join(details)
 
                         file = None
                         if CLIP_ATTACH_VIDEO and clip.get('thumbnail_url'):
@@ -518,15 +498,13 @@ async def check_twitch_clips():
                                         print(f"Erro ao baixar vídeo: {resp.status_code}")
                                 except Exception as e:
                                     print(f"Erro ao baixar vídeo do clip {clip_id}: {e}")
-                        elif clip.get('thumbnail_url'):
-                            embed.set_image(url=clip['thumbnail_url'])
 
                         if file:
                             print(f"[DEBUG] Enviando vídeo do clip {clip_id}")
-                            await channel.send(content=clip['url'], embed=embed, file=file)
+                            await channel.send(content=message, file=file)
                         else:
                             print(f"[DEBUG] Enviando link do clip {clip_id}")
-                            await channel.send(content=clip['url'], embed=embed)
+                            await channel.send(content=message)
 
                     last_clips[server_id].add(clip_id)
 
