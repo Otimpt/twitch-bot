@@ -14,7 +14,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Postagem automática no Discord
 - Configuração por servidor
 - Checagem a cada 15 segundos (configurável)
-- Número de páginas da API configurável (padrão 1), do mais novo para o mais antigo
+- Número de páginas da API configurável (padrão 1), processando os clips em ordem cronológica
 
 ## Comandos
 
@@ -33,11 +33,11 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
 2. A cada 15 segundos (padrão) o bot consulta a API da Twitch em busca de novos clips do canal configurado.
 3. Para compensar atrasos da API, o bot revisita os últimos `CLIP_API_LAG_SECONDS` segundos e também aceita clipes que apareçam um pouco antes do último horário conhecido. Assim, mesmo que a Twitch demore para listar um clip, ele não será perdido. O tempo máximo de espera de cada requisição pode ser ajustado via `CLIP_API_TIMEOUT`. Por padrão apenas a primeira página é consultada, mas `CLIP_MAX_PAGES` pode aumentar esse limite.
-4. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` em UTC para detectar até clips feitos segundos atrás sem repetir conteúdo antigo.
+4. Somente clips criados após a configuração são enviados por padrão. Caso queira recuperar um histórico maior, defina `CLIP_LOOKBACK_HOURS` com o número de horas desejado.
 5. O horário do último clip processado só avança quando um clip realmente mais novo é encontrado, garantindo que itens atrasados ainda sejam considerados.
 6. Clips criados no mesmo segundo do último processado ou alguns segundos antes também são enviados, evitando lacunas.
 7. Sempre que um clip novo for encontrado, o bot envia o link do clip, o que faz o Discord gerar automaticamente a prévia em vídeo. As informações sobre views, autor e data são adicionadas no texto e, se `CLIP_ATTACH_VIDEO` estiver definido como `1`, o vídeo também é enviado como anexo.
-8. Os clips são enviados do mais novo para o mais antigo, reduzindo a espera por conteúdo recente.
+8. Os clips são enviados em ordem cronológica, do mais antigo para o mais novo.
 9. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 10. O monitoramento continua funcionando mesmo se `/twitch_setup` for executado novamente,
     pois o bot lida com a troca de configurações sem interromper a verificação.
@@ -59,7 +59,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
    - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
-   - (Opcional) Ajuste `CLIP_LOOKBACK_HOURS` para definir quantas horas de clips recentes serão enviados ao configurar
+  - (Opcional) Ajuste `CLIP_LOOKBACK_HOURS` caso queira enviar um pequeno histórico de clips ao configurar (padrão 0, nenhum histórico)
    - (Opcional) Ajuste `CLIP_CHECK_SECONDS` para controlar o intervalo de verificação de novos clips (padrão 15s)
    - (Opcional) Ajuste `CLIP_MAX_PAGES` para definir quantas páginas da API são consultadas a cada ciclo (padrão 1)
    - (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para esconder views, criador e data dos embeds
@@ -110,7 +110,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. Se o console mostrar apenas credenciais para OAuth com PKCE (sem Client Secret), abra a página da aplicação e procure o campo **OAuth Client Type** ou **Application Type**. Selecione **Confidential** (também chamado de Server‑side) e salve.
 4. Após salvar essa configuração, o botão **New Secret** aparecerá na aba "Manage". Gere o segredo e anote o valor.
 5. Copie o Client ID e o Client Secret gerado e defina-os em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
-6. (Opcional) Defina `CLIP_LOOKBACK_HOURS` para controlar quantas horas de clips recentes serão enviados ao configurar
+6. (Opcional) Use `CLIP_LOOKBACK_HOURS` para enviar clips de algumas horas antes da configuração (padrão 0)
 7. (Opcional) Defina `CLIP_CHECK_SECONDS` para ajustar o intervalo de checagem de novos clips (padrão 15s)
 8. (Opcional) Defina `CLIP_MAX_PAGES` para escolher quantas páginas da API serão consultadas (padrão 1)
 9. (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para ocultar views, criador e data dos embeds

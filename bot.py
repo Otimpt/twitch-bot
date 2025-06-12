@@ -31,8 +31,8 @@ twitch_configs = {}
 last_clips = {}
 last_check_time = {}
 
-# Quantas horas de clips anteriores devem ser enviados ao configurar
-CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
+# Quantas horas de clips anteriores devem ser enviados ao configurar (0 = apenas novos)
+CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 0))
 # Intervalo entre verificações da Twitch em segundos
 CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 15))
 # Quantas páginas da API devem ser buscadas a cada verificação
@@ -392,7 +392,8 @@ async def get_latest_clips(
                 break
             pages += 1
 
-        all_clips.sort(key=lambda c: c['created_at'], reverse=True)
+        # Ordena do mais antigo para o mais novo para processar em ordem cronológica
+        all_clips.sort(key=lambda c: c['created_at'])
         return all_clips
     except Exception as e:
         print(f"Erro ao obter clips: {e}")
@@ -468,10 +469,14 @@ async def check_twitch_clips():
             print(
                 f"[DEBUG] Checando clips para {config['username']} em {datetime.now(timezone.utc).isoformat()}"
             )
-            started_at = last_check_time.get(
-                server_id,
-                datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
-            ) - timedelta(seconds=CLIP_API_LAG_SECONDS)
+            # Busca clips criados após a última verificação (com margem para atrasos)
+            started_at = (
+                last_check_time.get(
+                    server_id,
+                    datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS),
+                )
+                - timedelta(seconds=CLIP_API_LAG_SECONDS)
+            )
             clips = await get_latest_clips(
                 config['broadcaster_id'], started_at, max_pages=CLIP_MAX_PAGES
             )
@@ -490,12 +495,7 @@ async def check_twitch_clips():
                 created_at = datetime.fromisoformat(
                     clip['created_at'].replace('Z', '+00:00')
                 ).astimezone(timezone.utc)
-                # Aceita clips mesmo se forem alguns segundos mais antigos que
-                # o último processado, compensando atrasos da API
-                if (
-                    created_at >= last_check_time[server_id] - timedelta(seconds=CLIP_API_LAG_SECONDS)
-                    and clip_id not in last_clips[server_id]
-                ):
+                if created_at >= last_check_time[server_id] and clip_id not in last_clips[server_id]:
                     channel = bot.get_channel(config['discord_channel'])
                     if channel:
                         message = f"{clip['url']}\n**{clip['title']}**"
@@ -533,8 +533,8 @@ async def check_twitch_clips():
                 if created_at >= latest_time:
                     latest_time = created_at
 
-            # Atualiza o horário do último clip processado
-            last_check_time[server_id] = max(last_check_time[server_id], latest_time)
+            # Atualiza o horário do último clip processado ou da verificação
+            last_check_time[server_id] = max(latest_time, datetime.now(timezone.utc))
 
             # Mantém apenas os últimos 50 clips na memória
             if len(last_clips[server_id]) > 50:
