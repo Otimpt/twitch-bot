@@ -36,7 +36,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 4. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` em UTC para detectar até clips feitos segundos atrás sem repetir conteúdo antigo.
 5. O horário do último clip processado só avança quando um clip realmente mais novo é encontrado, garantindo que itens atrasados ainda sejam considerados.
 6. Clips criados no mesmo segundo do último processado ou alguns segundos antes também são enviados, evitando lacunas.
-7. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+7. Sempre que um clip novo for encontrado, o bot publica o link do clip (o que faz o Discord incorporar o vídeo) junto de um embed com detalhes. Se `CLIP_ATTACH_VIDEO` estiver definido como `1`, o vídeo é baixado e enviado como anexo no próprio chat.
 8. Os clips são enviados do mais novo para o mais antigo, reduzindo a espera por conteúdo recente.
 9. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 10. O monitoramento continua funcionando mesmo se `/twitch_setup` for executado novamente,
@@ -65,6 +65,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    - (Opcional) Ajuste `CLIP_API_LAG_SECONDS` para considerar atrasos da API (padrão 15s)
    - (Opcional) Ajuste `CLIP_API_TIMEOUT` para definir o tempo limite das requisições à API (padrão 10s)
    - (Opcional) Ajuste `CLIP_MAX_PAGES` para limitar quantas páginas de clips são buscadas a cada verificação (padrão 3)
+   - (Opcional) Defina `CLIP_ATTACH_VIDEO` como `1` para anexar o vídeo do clip no chat em vez de apenas o thumbnail
 
 4. **Execute o bot:**
    ```bash
@@ -109,6 +110,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 9. (Opcional) Ajuste `CLIP_API_LAG_SECONDS` para compensar possíveis atrasos da API (padrão 15s)
 10. (Opcional) Ajuste `CLIP_API_TIMEOUT` para definir o tempo limite das requisições (padrão 10s)
 11. (Opcional) Ajuste `CLIP_MAX_PAGES` para limitar quantas páginas de clips são buscadas a cada verificação (padrão 3)
+12. (Opcional) Defina `CLIP_ATTACH_VIDEO` como `1` para enviar o vídeo do clip como anexo (pode aumentar o uso de dados)
 
 ## Permissões Necessárias
 

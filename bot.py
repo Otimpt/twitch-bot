@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import asyncio
 import requests
 import json
+import re
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
@@ -42,6 +43,8 @@ CLIP_API_LAG_SECONDS = int(os.environ.get("CLIP_API_LAG_SECONDS", 15))
 CLIP_API_TIMEOUT = int(os.environ.get("CLIP_API_TIMEOUT", 10))
 # Quantidade de páginas a buscar por verificação
 CLIP_MAX_PAGES = int(os.environ.get("CLIP_MAX_PAGES", 3))
+# Enviar o vídeo do clip como anexo
+CLIP_ATTACH_VIDEO = os.environ.get("CLIP_ATTACH_VIDEO", "0") != "0"
 
 class ChessGame:
     def __init__(self, player1, player2):
@@ -391,6 +394,14 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100)
         print(f"Erro ao obter clips: {e}")
     return []
 
+
+def clip_video_url(thumbnail_url: str) -> str:
+    """Converte a URL do thumbnail em URL de vídeo MP4."""
+    if not thumbnail_url:
+        return None
+    base = thumbnail_url.split('-preview')[0]
+    return base + '.mp4'
+
 @bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips da Twitch")
 async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, canal_discord: discord.TextChannel):
     await interaction.response.defer()
@@ -479,10 +490,25 @@ async def check_twitch_clips():
                         embed.add_field(name="⏱️ Duração", value=f"{clip['duration']}s", inline=True)
                         embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
 
-                        if clip.get('thumbnail_url'):
+                        file = None
+                        if CLIP_ATTACH_VIDEO and clip.get('thumbnail_url'):
+                            mp4_url = clip_video_url(clip['thumbnail_url'])
+                            if mp4_url:
+                                try:
+                                    resp = requests.get(mp4_url, timeout=CLIP_API_TIMEOUT)
+                                    if resp.status_code == 200:
+                                        file = discord.File(BytesIO(resp.content), filename=f"{clip_id}.mp4")
+                                    else:
+                                        print(f"Erro ao baixar vídeo: {resp.status_code}")
+                                except Exception as e:
+                                    print(f"Erro ao baixar vídeo do clip {clip_id}: {e}")
+                        elif clip.get('thumbnail_url'):
                             embed.set_image(url=clip['thumbnail_url'])
 
-                        await channel.send(embed=embed)
+                        if file:
+                            await channel.send(embed=embed, file=file)
+                        else:
+                            await channel.send(content=clip['url'], embed=embed)
 
                     last_clips[server_id].add(clip_id)
 
