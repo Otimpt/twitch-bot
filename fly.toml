@@ -1,0 +1,5 @@
+app = "twitch-bot"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
