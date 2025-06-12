@@ -298,12 +298,16 @@ async def jogos(interaction: discord.Interaction):
                         embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
                         embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
                         embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
-                        if clip.get('thumbnail_url'):
-                            embed.set_image(url=clip['thumbnail_url'])
-                        await channel.send(embed=embed)
-                    last_clips[server_id].add(clip_id)
-        embed.add_field(name="🔄 Última verificação", value="A cada 5 minutos", inline=True)
+        url = (
+            f"https://api.twitch.tv/helix/clips?"
+            f"broadcaster_id={broadcaster_id}&first={limit}"
+        )
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        return []
 
+    return response.json().get("data", [])
         print("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente!")
     else:
     )
