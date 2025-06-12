@@ -472,7 +472,21 @@ async def help_command(interaction: discord.Interaction):
 
 # Inicia o bot
 if __name__ == "__main__":
+    missing_vars = []
     if not DISCORD_TOKEN:
-        print("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente!")
-    else:
+        missing_vars.append("DISCORD_TOKEN")
+    if not TWITCH_CLIENT_ID:
+        missing_vars.append("TWITCH_CLIENT_ID")
+    if not TWITCH_SECRET:
+        missing_vars.append("TWITCH_SECRET")
+
+    if missing_vars:
+        print(f"❌ Variáveis de ambiente faltando: {', '.join(missing_vars)}")
+        if "DISCORD_TOKEN" in missing_vars:
+            print("Bot não pode iniciar sem DISCORD_TOKEN.")
+            exit(1)
+        else:
+            print("⚠️ Twitch desabilitado. Defina TWITCH_CLIENT_ID e TWITCH_SECRET para habilitar.")
+
+    if DISCORD_TOKEN:
         bot.run(DISCORD_TOKEN)
