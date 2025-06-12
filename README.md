@@ -15,6 +15,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Configuração por servidor
 - Checagem a cada 15 segundos (configurável)
 - Número de páginas da API configurável (padrão 1), processando os clips em ordem cronológica
+- Requisições assíncronas para não bloquear o bot durante o acesso à API
 
 ## Comandos
 
@@ -54,6 +55,8 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
    python -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
+   # As dependências incluem o **aiohttp**, usado para realizar
+   # requisições assíncronas sem travar o bot
    ```
 
 3. **Configure as variáveis de ambiente:**

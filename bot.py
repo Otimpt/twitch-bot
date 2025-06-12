@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 import asyncio
-import requests
-import json
+import aiohttp
 import re
 import os
 from dotenv import load_dotenv
@@ -10,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 import chess
 import chess.svg
 from io import BytesIO
-import base64
 
 # Configurações do bot
 intents = discord.Intents.default()
@@ -291,13 +289,17 @@ async def get_twitch_token():
     }
 
     try:
-        response = requests.post(url, params=params, timeout=CLIP_API_TIMEOUT)
-        if response.status_code == 200:
-            return response.json()['access_token']
-        else:
-            print(
-                f"Erro ao obter token: {response.status_code} {response.text}"
-            )
+        timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data['access_token']
+                else:
+                    text = await response.text()
+                    print(
+                        f"Erro ao obter token: {response.status} {text}"
+                    )
     except Exception as e:
         print(f"Erro ao obter token da Twitch: {e}")
     return None
@@ -314,19 +316,22 @@ async def get_broadcaster_id(username):
     }
 
     try:
-        response = requests.get(
-            f"https://api.twitch.tv/helix/users?login={username}",
-            headers=headers,
-            timeout=CLIP_API_TIMEOUT,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            if data['data']:
-                return data['data'][0]['id']
-        else:
-            print(
-                f"Erro ao obter usuário: {response.status_code} {response.text}"
-            )
+        timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(
+                "https://api.twitch.tv/helix/users",
+                params={"login": username},
+                headers=headers,
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("data"):
+                        return data["data"][0]["id"]
+                else:
+                    text = await response.text()
+                    print(
+                        f"Erro ao obter usuário: {response.status} {text}"
+                    )
     except Exception as e:
         print(f"Erro ao obter broadcaster ID: {e}")
     return None
@@ -360,37 +365,38 @@ async def get_latest_clips(
         all_clips = []
         cursor = None
         pages = 0
+        timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            while pages < max_pages:
+                params = {
+                    'broadcaster_id': broadcaster_id,
+                    'first': limit,
+                    'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+                    'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+                }
+                if cursor:
+                    params['after'] = cursor
 
-        while pages < max_pages:
-            params = {
-                'broadcaster_id': broadcaster_id,
-                'first': limit,
-                'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-                'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-            }
-            if cursor:
-                params['after'] = cursor
+                async with session.get(
+                    "https://api.twitch.tv/helix/clips",
+                    params=params,
+                    headers=headers,
+                ) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        print(
+                            f"Erro ao obter clips: {response.status} {text}"
+                        )
+                        break
 
-            response = requests.get(
-                "https://api.twitch.tv/helix/clips",
-                params=params,
-                headers=headers,
-                timeout=CLIP_API_TIMEOUT,
-            )
-            if response.status_code != 200:
-                print(
-                    f"Erro ao obter clips: {response.status_code} {response.text}"
-                )
-                break
+                    data = await response.json()
+                    clips = data.get('data', [])
+                    all_clips.extend(clips)
 
-            data = response.json()
-            clips = data.get('data', [])
-            all_clips.extend(clips)
-
-            cursor = data.get('pagination', {}).get('cursor')
-            if not cursor or not clips:
-                break
-            pages += 1
+                    cursor = data.get('pagination', {}).get('cursor')
+                    if not cursor or not clips:
+                        break
+                    pages += 1
 
         # Ordena do mais antigo para o mais novo para processar em ordem cronológica
         all_clips.sort(key=lambda c: c['created_at'])
@@ -513,11 +519,14 @@ async def check_twitch_clips():
                             mp4_url = clip_video_url(clip['thumbnail_url'])
                             if mp4_url:
                                 try:
-                                    resp = requests.get(mp4_url, timeout=CLIP_API_TIMEOUT)
-                                    if resp.status_code == 200:
-                                        file = discord.File(BytesIO(resp.content), filename=f"{clip_id}.mp4")
-                                    else:
-                                        print(f"Erro ao baixar vídeo: {resp.status_code}")
+                                    timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
+                                    async with aiohttp.ClientSession(timeout=timeout) as session:
+                                        async with session.get(mp4_url) as resp:
+                                            if resp.status == 200:
+                                                data = await resp.read()
+                                                file = discord.File(BytesIO(data), filename=f"{clip_id}.mp4")
+                                            else:
+                                                print(f"Erro ao baixar vídeo: {resp.status}")
                                 except Exception as e:
                                     print(f"Erro ao baixar vídeo do clip {clip_id}: {e}")
 
