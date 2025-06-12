@@ -42,7 +42,7 @@ CLIP_API_LAG_SECONDS = int(os.environ.get("CLIP_API_LAG_SECONDS", 15))
 # Tempo limite das requisições HTTP
 CLIP_API_TIMEOUT = int(os.environ.get("CLIP_API_TIMEOUT", 10))
 # Quantidade de páginas a buscar por verificação
-CLIP_MAX_PAGES = int(os.environ.get("CLIP_MAX_PAGES", 3))
+CLIP_MAX_PAGES = int(os.environ.get("CLIP_MAX_PAGES", 1))
 # Enviar o vídeo do clip como anexo
 CLIP_ATTACH_VIDEO = os.environ.get("CLIP_ATTACH_VIDEO", "0") != "0"
 
@@ -335,8 +335,8 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100)
     """Obtém clips criados após `started_at`.
 
     A Twitch retorna os clips ordenados por popularidade. Para evitar
-    perdas em canais movimentados, percorremos várias páginas até
-    alcançar `CLIP_MAX_PAGES`.
+    perdas em canais movimentados, percorremos as páginas da API
+    da primeira até `CLIP_MAX_PAGES`.
     """
     token = await get_twitch_token()
     if not token:
