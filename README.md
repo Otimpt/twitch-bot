@@ -2,6 +2,9 @@
 
 Bot Discord com jogos de mesa (xadrez) e integração automática com clips da Twitch.
 
+## Pré-requisitos
+- Python 3.10 ou superior
+- Conta no Discord e na Twitch para obter as credenciais
 ## Funcionalidades
 
 ### 🎮 Jogos
