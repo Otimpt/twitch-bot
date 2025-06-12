@@ -31,10 +31,10 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
 2. A cada 15 segundos (padrão) o bot consulta a API da Twitch em busca de novos clips do canal configurado.
-3. Para compensar eventuais atrasos da API, o bot revisita os últimos `CLIP_API_LAG_SECONDS` segundos de clips e usa um tempo limite nas requisições (`CLIP_API_TIMEOUT`).
+3. Para compensar atrasos da API, o bot revisita os últimos `CLIP_API_LAG_SECONDS` segundos e também aceita clipes que apareçam um pouco antes do último horário conhecido. Assim, mesmo que a Twitch demore para listar um clip, ele não será perdido. O tempo máximo de espera de cada requisição pode ser ajustado via `CLIP_API_TIMEOUT`.
 4. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` em UTC para detectar até clips feitos segundos atrás sem repetir conteúdo antigo.
-5. O bot mantém o horário do último clip processado. Se nenhuma novidade for encontrada, o marcador não avança, evitando perder clips que demoram a aparecer na API da Twitch.
-6. Clips criados exatamente no mesmo segundo do último processado também são enviados para não perder nenhum conteúdo.
+5. O horário do último clip processado só avança quando um clip realmente mais novo é encontrado, garantindo que itens atrasados ainda sejam considerados.
+6. Clips criados no mesmo segundo do último processado ou alguns segundos antes também são enviados, evitando lacunas.
 7. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
 8. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
