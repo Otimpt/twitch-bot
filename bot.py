@@ -4,6 +4,7 @@ import asyncio
 import requests
 import json
 import os
+from dotenv import load_dotenv
 from datetime import datetime
 import chess
 import chess.svg
@@ -14,6 +15,9 @@ import base64
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Carrega variáveis definidas em um arquivo .env (opcional)
+load_dotenv()
 
 # Variáveis de ambiente
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
