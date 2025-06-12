@@ -5,7 +5,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import chess
 import chess.svg
 from io import BytesIO
@@ -328,13 +328,13 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=20):
 
     try:
         if ended_at is None:
-            ended_at = datetime.utcnow()
+            ended_at = datetime.now(timezone.utc)
 
         params = {
             'broadcaster_id': broadcaster_id,
             'first': limit,
-            'started_at': started_at.isoformat(timespec='seconds') + 'Z',
-            'ended_at': ended_at.isoformat(timespec='seconds') + 'Z'
+            'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+            'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z')
         }
 
         response = requests.get("https://api.twitch.tv/helix/clips", params=params, headers=headers)
@@ -374,7 +374,7 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
 
     # Inicializa o controle de clips e a referência de tempo
     last_clips[server_id] = set()
-    last_check_time[server_id] = datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS)
+    last_check_time[server_id] = datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
 
     embed = discord.Embed(
         title="📺 Twitch Configurado!",
@@ -391,19 +391,25 @@ async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
     for server_id, config in twitch_configs.items():
         try:
-            started_at = last_check_time.get(server_id,
-                                           datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS))
+            started_at = last_check_time.get(
+                server_id,
+                datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
+            )
             clips = await get_latest_clips(config['broadcaster_id'], started_at)
 
             if server_id not in last_clips:
                 last_clips[server_id] = set()
             if server_id not in last_check_time:
-                last_check_time[server_id] = datetime.utcnow() - timedelta(hours=CLIP_LOOKBACK_HOURS)
+                last_check_time[server_id] = (
+                    datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
+                )
 
             latest_time = last_check_time[server_id]
             for clip in clips:
                 clip_id = clip['id']
-                created_at = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
+                created_at = datetime.fromisoformat(
+                    clip['created_at'].replace('Z', '+00:00')
+                ).astimezone(timezone.utc)
                 if created_at > last_check_time[server_id] and clip_id not in last_clips[server_id]:
                     channel = bot.get_channel(config['discord_channel'])
                     if channel:
@@ -433,7 +439,7 @@ async def check_twitch_clips():
 
             # Atualiza o momento da última verificação
             if latest_time == last_check_time[server_id]:
-                last_check_time[server_id] = datetime.utcnow()
+                last_check_time[server_id] = datetime.now(timezone.utc)
             else:
                 last_check_time[server_id] = latest_time
 
