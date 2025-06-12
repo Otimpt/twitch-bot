@@ -80,6 +80,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 2. Registre uma nova aplicação
 3. Copie Client ID e Client Secret
 4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+5. Esses valores são obrigatórios para que o bot consiga acessar a API da Twitch e localizar o canal informado. Se o comando `/twitch_setup` retornar que o canal não foi encontrado, confirme que o `Client ID` e `Secret` estão corretos.
 
 
 ## Permissões Necessárias

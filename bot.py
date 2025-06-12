@@ -251,16 +251,24 @@ async def jogos(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
-        response = requests.post(url, params=params)
+        response = requests.post(url, data=params, timeout=10)
         if response.status_code == 200:
             return response.json()['access_token']
-
-        response = requests.get(f"https://api.twitch.tv/helix/users?login={username}", headers=headers)
+        print(f"Falha ao obter token: {response.status_code} {response.text}")
+    except requests.RequestException as e:
+        response = requests.get(
+            f"https://api.twitch.tv/helix/users?login={username}",
+            headers=headers,
+            timeout=10
+        )
         if response.status_code == 200:
             data = response.json()
             if data['data']:
                 return data['data'][0]['id']
-async def get_latest_clips(broadcaster_id, limit=5):
+            print("Canal não encontrado na resposta da API.")
+        else:
+            print(f"Erro ao consultar usuários: {response.status_code} {response.text}")
+    except requests.RequestException as e:
     """Obtém os clips mais recentes de um canal"""
     token = await get_twitch_token()
     if not token:
@@ -459,7 +467,15 @@ async def help_command(interaction: discord.Interaction):
 
 # Inicia o bot
 if __name__ == "__main__":
-    missing_vars = []
+    missing = []
+        missing.append("DISCORD_TOKEN")
+    if not TWITCH_CLIENT_ID:
+        missing.append("TWITCH_CLIENT_ID")
+    if not TWITCH_SECRET:
+        missing.append("TWITCH_SECRET")
+
+    if missing:
+        print("❌ Variáveis de ambiente faltando: " + ", ".join(missing))
     if not DISCORD_TOKEN:
         missing_vars.append("DISCORD_TOKEN")
     if not TWITCH_CLIENT_ID:
