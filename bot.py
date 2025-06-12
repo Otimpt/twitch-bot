@@ -437,10 +437,8 @@ async def check_twitch_clips():
                 if created_at > latest_time:
                     latest_time = created_at
 
-            # Atualiza o momento da última verificação
-            if latest_time == last_check_time[server_id]:
-                last_check_time[server_id] = datetime.now(timezone.utc)
-            else:
+            # Avança o marcador de tempo apenas se novos clips foram detectados
+            if latest_time > last_check_time[server_id]:
                 last_check_time[server_id] = latest_time
 
             # Mantém apenas os últimos 50 clips na memória
