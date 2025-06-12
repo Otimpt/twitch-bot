@@ -41,8 +41,10 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ## Configuração
 
 1. **Clone o repositório**
-2. **Instale as dependências:**
+2. **Prepare o ambiente Python** (recomendado Python 3.10 ou superior):
    ```bash
+   python -m venv venv
+   source venv/bin/activate
    pip install -r requirements.txt
    ```
 
