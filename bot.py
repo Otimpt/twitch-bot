@@ -40,6 +40,8 @@ CLIP_SHOW_DETAILS = os.environ.get("CLIP_SHOW_DETAILS", "1") != "0"
 CLIP_API_LAG_SECONDS = int(os.environ.get("CLIP_API_LAG_SECONDS", 15))
 # Tempo limite das requisições HTTP
 CLIP_API_TIMEOUT = int(os.environ.get("CLIP_API_TIMEOUT", 10))
+# Quantidade de páginas a buscar por verificação
+CLIP_MAX_PAGES = int(os.environ.get("CLIP_MAX_PAGES", 3))
 
 class ChessGame:
     def __init__(self, player1, player2):
@@ -326,12 +328,12 @@ async def get_broadcaster_id(username):
         print(f"Erro ao obter broadcaster ID: {e}")
     return None
 
-async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=50):
+async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100):
     """Obtém clips criados após `started_at`.
 
-    Twitch retorna os clips ordenados por popularidade, então filtramos
-    manualmente pelo horário de criação para garantir que apenas os
-    realmente recentes sejam processados.
+    A Twitch retorna os clips ordenados por popularidade. Para evitar
+    perdas em canais movimentados, percorremos várias páginas até
+    alcançar `CLIP_MAX_PAGES`.
     """
     token = await get_twitch_token()
     if not token:
@@ -350,23 +352,39 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=50):
             'broadcaster_id': broadcaster_id,
             'first': limit,
             'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
-            'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z')
+            'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
         }
 
-        response = requests.get(
-            "https://api.twitch.tv/helix/clips",
-            params=params,
-            headers=headers,
-            timeout=CLIP_API_TIMEOUT,
-        )
-        if response.status_code == 200:
-            clips = response.json().get('data', [])
-            clips.sort(key=lambda c: c['created_at'])
-            return clips
-        else:
-            print(
-                f"Erro ao obter clips: {response.status_code} {response.text}"
+        clips = []
+        pages = 0
+        cursor = None
+
+        while pages < CLIP_MAX_PAGES:
+            if cursor:
+                params['after'] = cursor
+
+            response = requests.get(
+                "https://api.twitch.tv/helix/clips",
+                params=params,
+                headers=headers,
+                timeout=CLIP_API_TIMEOUT,
             )
+            if response.status_code != 200:
+                print(
+                    f"Erro ao obter clips: {response.status_code} {response.text}"
+                )
+                break
+
+            data = response.json()
+            clips.extend(data.get('data', []))
+            cursor = data.get('pagination', {}).get('cursor')
+            pages += 1
+
+            if not cursor:
+                break
+
+        clips.sort(key=lambda c: c['created_at'])
+        return clips
     except Exception as e:
         print(f"Erro ao obter clips: {e}")
     return []
