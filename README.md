@@ -65,9 +65,15 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. Deploy automático!
 
 ### Fly.io
-1. Instale o CLI do Fly.io
-2. Execute `fly launch`
-3. Configure as variáveis com `fly secrets set`
+1. Instale o CLI do Fly.io: `curl -L https://fly.io/install.sh | sh`
+2. Faça login com `fly auth login`
+3. Rode `fly launch --no-deploy` para criar o app e o arquivo `fly.toml`
+4. Defina as variáveis de ambiente como segredos:
+   ```bash
+   fly secrets import < .env
+   ```
+   ou defina manualmente com `fly secrets set VAR=valor`
+5. Por fim, execute `fly deploy` para enviar o contêiner ao Fly.io
 
 ## Credenciais Necessárias
 
