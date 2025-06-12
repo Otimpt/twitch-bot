@@ -13,7 +13,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Monitoramento automático de novos clips
 - Postagem automática no Discord
 - Configuração por servidor
-- Checagem a cada 5 minutos
+- Checagem a cada 15 segundos (configurável)
 
 ## Comandos
 
@@ -30,9 +30,11 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
-2. A cada 5 minutos o bot consulta a API da Twitch em busca de novos clips do canal configurado.
-3. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
-4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
+2. A cada 15 segundos (por padrão) o bot consulta a API da Twitch em busca de novos clips do canal configurado.
+3. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` e compara horários em UTC, garantindo que até clips feitos segundos atrás sejam detectados sem repetir conteúdo antigo.
+4. O bot mantém o horário do último clip processado. Se nenhuma novidade for encontrada, o marcador não avança, evitando perder clips que demoram a aparecer na API da Twitch.
+5. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+6. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades
 - `/ping` - Verifica latência do bot
@@ -41,14 +43,19 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ## Configuração
 
 1. **Clone o repositório**
-2. **Instale as dependências:**
+2. **Prepare o ambiente Python** (recomendado Python 3.10 ou superior):
    ```bash
+   python -m venv venv
+   source venv/bin/activate
    pip install -r requirements.txt
    ```
 
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
    - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
+   - (Opcional) Ajuste `CLIP_LOOKBACK_HOURS` para definir quantas horas de clips recentes serão enviados ao configurar
+   - (Opcional) Ajuste `CLIP_CHECK_SECONDS` para controlar o intervalo de verificação de novos clips (padrão 15s)
+   - (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para esconder views, criador e data dos embeds
 
 4. **Execute o bot:**
    ```bash
@@ -63,9 +70,15 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. Deploy automático!
 
 ### Fly.io
-1. Instale o CLI do Fly.io
-2. Execute `fly launch`
-3. Configure as variáveis com `fly secrets set`
+1. Instale o CLI do Fly.io: `curl -L https://fly.io/install.sh | sh`
+2. Faça login com `fly auth login`
+3. Rode `fly launch --no-deploy` para criar o app e o arquivo `fly.toml`
+4. Defina as variáveis de ambiente como segredos:
+   ```bash
+   fly secrets import < .env
+   ```
+   ou defina manualmente com `fly secrets set VAR=valor`
+5. Por fim, execute `fly deploy` para enviar o contêiner ao Fly.io
 
 ## Credenciais Necessárias
 
@@ -78,8 +91,15 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ### Twitch
 1. Acesse https://dev.twitch.tv/console
 2. Registre uma nova aplicação
-3. Copie Client ID e Client Secret
-4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+6. (Opcional) Defina `CLIP_LOOKBACK_HOURS` para controlar quantas horas de clips recentes serão enviados ao configurar
+7. (Opcional) Defina `CLIP_CHECK_SECONDS` para ajustar o intervalo de checagem de novos clips (padrão 15s)
+8. (Opcional) Defina `CLIP_SHOW_DETAILS` como `0` para ocultar views, criador e data dos embeds
+
+3. Se o console mostrar apenas credenciais para OAuth com PKCE (sem Client Secret), abra a página da aplicação e procure o campo **OAuth Client Type** ou **Application Type**. Selecione **Confidential** (também chamado de Server‑side) e salve.
+4. Após salvar essa configuração, o botão **New Secret** aparecerá na aba "Manage". Gere o segredo e anote o valor.
+5. Copie Client ID e Client Secret
+6. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+
 
 
 ## Permissões Necessárias

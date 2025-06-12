@@ -5,7 +5,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import chess
 import chess.svg
 from io import BytesIO
@@ -28,6 +28,14 @@ TWITCH_SECRET = os.environ.get("TWITCH_SECRET")
 active_games = {}
 twitch_configs = {}
 last_clips = {}
+last_check_time = {}
+
+# Quantas horas de clips anteriores devem ser enviados ao configurar
+CLIP_LOOKBACK_HOURS = int(os.environ.get("CLIP_LOOKBACK_HOURS", 2))
+# Intervalo entre verificações da Twitch em segundos
+CLIP_CHECK_SECONDS = int(os.environ.get("CLIP_CHECK_SECONDS", 15))
+# Exibir views, criador e data nos embeds de clips
+CLIP_SHOW_DETAILS = os.environ.get("CLIP_SHOW_DETAILS", "1") != "0"
 
 class ChessGame:
     def __init__(self, player1, player2):
@@ -302,8 +310,13 @@ async def get_broadcaster_id(username):
         print(f"Erro ao obter broadcaster ID: {e}")
     return None
 
-async def get_latest_clips(broadcaster_id, limit=5):
-    """Obtém os clips mais recentes de um canal"""
+async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=20):
+    """Obtém clips criados após `started_at`.
+
+    Twitch retorna os clips ordenados por popularidade, então filtramos
+    manualmente pelo horário de criação para garantir que apenas os
+    realmente recentes sejam processados.
+    """
     token = await get_twitch_token()
     if not token:
         return []
@@ -314,10 +327,21 @@ async def get_latest_clips(broadcaster_id, limit=5):
     }
 
     try:
-        url = f"https://api.twitch.tv/helix/clips?broadcaster_id={broadcaster_id}&first={limit}"
-        response = requests.get(url, headers=headers)
+        if ended_at is None:
+            ended_at = datetime.now(timezone.utc)
+
+        params = {
+            'broadcaster_id': broadcaster_id,
+            'first': limit,
+            'started_at': started_at.isoformat(timespec='seconds').replace('+00:00', 'Z'),
+            'ended_at': ended_at.isoformat(timespec='seconds').replace('+00:00', 'Z')
+        }
+
+        response = requests.get("https://api.twitch.tv/helix/clips", params=params, headers=headers)
         if response.status_code == 200:
-            return response.json()['data']
+            clips = response.json().get('data', [])
+            clips.sort(key=lambda c: c['created_at'])
+            return clips
     except Exception as e:
         print(f"Erro ao obter clips: {e}")
     return []
@@ -348,8 +372,9 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
         'discord_channel': canal_discord.id
     }
 
-    # Inicializa o controle de clips
+    # Inicializa o controle de clips e a referência de tempo
     last_clips[server_id] = set()
+    last_check_time[server_id] = datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
 
     embed = discord.Embed(
         title="📺 Twitch Configurado!",
@@ -357,24 +382,35 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
         color=0x9146ff
     )
     embed.add_field(name="✅ Status", value="Monitoramento ativo", inline=False)
-    embed.add_field(name="🔄 Frequência", value="Verifica novos clips a cada 5 minutos", inline=False)
+    embed.add_field(name="🔄 Frequência", value=f"Verifica novos clips a cada {CLIP_CHECK_SECONDS}s", inline=False)
 
     await interaction.followup.send(embed=embed)
 
-@tasks.loop(minutes=5)
+@tasks.loop(seconds=CLIP_CHECK_SECONDS, reconnect=True)
 async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
     for server_id, config in twitch_configs.items():
         try:
-            clips = await get_latest_clips(config['broadcaster_id'], 3)
+            started_at = last_check_time.get(
+                server_id,
+                datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
+            )
+            clips = await get_latest_clips(config['broadcaster_id'], started_at)
 
             if server_id not in last_clips:
                 last_clips[server_id] = set()
+            if server_id not in last_check_time:
+                last_check_time[server_id] = (
+                    datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
+                )
 
+            latest_time = last_check_time[server_id]
             for clip in clips:
                 clip_id = clip['id']
-                if clip_id not in last_clips[server_id]:
-                    # Novo clip encontrado!
+                created_at = datetime.fromisoformat(
+                    clip['created_at'].replace('Z', '+00:00')
+                ).astimezone(timezone.utc)
+                if created_at > last_check_time[server_id] and clip_id not in last_clips[server_id]:
                     channel = bot.get_channel(config['discord_channel'])
                     if channel:
                         embed = discord.Embed(
@@ -384,11 +420,12 @@ async def check_twitch_clips():
                             color=0x9146ff
                         )
                         embed.add_field(name="📺 Canal", value=config['username'], inline=True)
-                        embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
+                        if CLIP_SHOW_DETAILS:
+                            embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
+                            embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
+                            embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
                         embed.add_field(name="⏱️ Duração", value=f"{clip['duration']}s", inline=True)
                         embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
-                        embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
-                        embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
 
                         if clip.get('thumbnail_url'):
                             embed.set_image(url=clip['thumbnail_url'])
@@ -396,6 +433,13 @@ async def check_twitch_clips():
                         await channel.send(embed=embed)
 
                     last_clips[server_id].add(clip_id)
+
+                if created_at > latest_time:
+                    latest_time = created_at
+
+            # Avança o marcador de tempo apenas se novos clips foram detectados
+            if latest_time > last_check_time[server_id]:
+                last_check_time[server_id] = latest_time
 
             # Mantém apenas os últimos 50 clips na memória
             if len(last_clips[server_id]) > 50:
@@ -425,7 +469,7 @@ async def twitch_status(interaction: discord.Interaction):
         embed.add_field(name="📺 Canal", value=config['username'], inline=True)
         embed.add_field(name="💬 Canal Discord", value=channel.mention if channel else "Canal não encontrado", inline=True)
         embed.add_field(name="✅ Status", value="Ativo", inline=True)
-        embed.add_field(name="🔄 Última verificação", value="A cada 5 minutos", inline=True)
+        embed.add_field(name="🔄 Última verificação", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=True)
         embed.add_field(name="📊 Clips monitorados", value=len(last_clips.get(server_id, [])), inline=True)
 
     await interaction.response.send_message(embed=embed)
@@ -472,7 +516,21 @@ async def help_command(interaction: discord.Interaction):
 
 # Inicia o bot
 if __name__ == "__main__":
+    missing_vars = []
     if not DISCORD_TOKEN:
-        print("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente!")
-    else:
+        missing_vars.append("DISCORD_TOKEN")
+    if not TWITCH_CLIENT_ID:
+        missing_vars.append("TWITCH_CLIENT_ID")
+    if not TWITCH_SECRET:
+        missing_vars.append("TWITCH_SECRET")
+
+    if missing_vars:
+        print(f"❌ Variáveis de ambiente faltando: {', '.join(missing_vars)}")
+        if "DISCORD_TOKEN" in missing_vars:
+            print("Bot não pode iniciar sem DISCORD_TOKEN.")
+            exit(1)
+        else:
+            print("⚠️ Twitch desabilitado. Defina TWITCH_CLIENT_ID e TWITCH_SECRET para habilitar.")
+
+    if DISCORD_TOKEN:
         bot.run(DISCORD_TOKEN)
