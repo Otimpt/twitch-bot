@@ -414,7 +414,9 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
 @tasks.loop(seconds=CLIP_CHECK_SECONDS, reconnect=True)
 async def check_twitch_clips():
     """Verifica novos clips da Twitch periodicamente"""
-    for server_id, config in twitch_configs.items():
+    # Copia as configurações para evitar erros caso sejam alteradas
+    # enquanto a iteração estiver em andamento
+    for server_id, config in list(twitch_configs.items()):
         try:
             started_at = last_check_time.get(
                 server_id,
