@@ -34,8 +34,9 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 3. Para compensar eventuais atrasos da API, o bot revisita os últimos `CLIP_API_LAG_SECONDS` segundos de clips e usa um tempo limite nas requisições (`CLIP_API_TIMEOUT`).
 4. Somente clips criados após a configuração (por padrão, nas últimas 2 horas) são enviados. A busca usa `started_at` em UTC para detectar até clips feitos segundos atrás sem repetir conteúdo antigo.
 5. O bot mantém o horário do último clip processado. Se nenhuma novidade for encontrada, o marcador não avança, evitando perder clips que demoram a aparecer na API da Twitch.
-6. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
-7. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
+6. Clips criados exatamente no mesmo segundo do último processado também são enviados para não perder nenhum conteúdo.
+7. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+8. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades
 - `/ping` - Verifica latência do bot

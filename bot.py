@@ -435,7 +435,9 @@ async def check_twitch_clips():
                 created_at = datetime.fromisoformat(
                     clip['created_at'].replace('Z', '+00:00')
                 ).astimezone(timezone.utc)
-                if created_at > last_check_time[server_id] and clip_id not in last_clips[server_id]:
+                # Aceita clips com o mesmo timestamp do último processado para
+                # evitar perder clipes criados no mesmo segundo
+                if created_at >= last_check_time[server_id] and clip_id not in last_clips[server_id]:
                     channel = bot.get_channel(config['discord_channel'])
                     if channel:
                         embed = discord.Embed(
