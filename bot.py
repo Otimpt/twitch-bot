@@ -6,6 +6,7 @@ import re
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
+
 import chess
 import chess.svg
 from io import BytesIO
