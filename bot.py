@@ -383,7 +383,9 @@ async def get_latest_clips(broadcaster_id, started_at, ended_at=None, limit=100)
             if not cursor:
                 break
 
-        clips.sort(key=lambda c: c['created_at'])
+        # Process clips from the mais recente to the mais antigo
+        # so new items são enviados first
+        clips.sort(key=lambda c: c['created_at'], reverse=True)
         return clips
     except Exception as e:
         print(f"Erro ao obter clips: {e}")
