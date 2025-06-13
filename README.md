@@ -22,8 +22,8 @@ Bot do Discord para enviar automaticamente clips recentes da Twitch.
 
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
-2. A cada `CLIP_CHECK_SECONDS` segundos o bot consulta a API da Twitch em busca de novos clips do canal configurado (30s por padrão).
-3. Sempre que um clip novo for encontrado, ele é enviado ao Discord com o link e um embed contendo os detalhes.
+2. A cada `CLIP_CHECK_SECONDS` segundos o bot consulta a API da Twitch em busca dos 100 clips mais recentes do canal (30s por padrão).
+3. O bot filtra os clipes por data e envia apenas aqueles que ainda não foram postados.
 4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades

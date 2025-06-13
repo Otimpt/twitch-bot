@@ -104,13 +104,11 @@ def clip_video_url(thumbnail_url: str) -> str:
     base = thumbnail_url.split("-preview-", 1)[0]
     return base + ".mp4"
 
-async def fetch_clips(broadcaster_id: str, start: datetime, end: datetime, token: str) -> List[dict]:
-    """Busca clips de um broadcaster em um período específico."""
+async def fetch_clips(broadcaster_id: str, token: str) -> List[dict]:
+    """Busca os clipes mais recentes de um broadcaster."""
     params = {
         "broadcaster_id": broadcaster_id,
         "first": 100,
-        "started_at": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "ended_at": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     url = "https://api.twitch.tv/helix/clips"
     headers = {
@@ -292,7 +290,7 @@ async def check_twitch_clips():
     for server_id, cfg in list(twitch_configs.items()):
         try:
             start = last_check_time.get(server_id, now - timedelta(hours=CLIP_LOOKBACK_HOURS))
-            clips = await fetch_clips(cfg["broadcaster_id"], start, now, token)
+            clips = await fetch_clips(cfg["broadcaster_id"], token)
 
             # Ordenar clips por data de criação
             clips.sort(key=lambda c: c.get("created_at", ""))
