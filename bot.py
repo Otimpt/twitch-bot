@@ -191,15 +191,23 @@ async def tabuleiro(interaction: discord.Interaction):
 
     game = active_games[user_game]
 
-    # Cria representação ASCII do tabuleiro
-    board_str = str(game.board)
+    """Permite que o usuário desista do jogo atual."""
 
-    embed = discord.Embed(
-        title="♟️ Tabuleiro Atual",
-        description=f"```\n{board_str}\n```",
-        color=0x9146ff
+    # Identifica se há um jogo em andamento para o usuário
+    if user_game is None:
+        await interaction.response.send_message(
+            "❌ Você não está em nenhum jogo ativo!", ephemeral=True
+        )
+    game = active_games.pop(user_game)
+    opponent = (
+        game.players[1] if game.players[0] == interaction.user else game.players[0]
     )
-    embed.add_field(
+        description=(
+            f"**{interaction.user.display_name}** desistiu do jogo!\n\n"
+            f"🏆 **{opponent.display_name}** venceu por desistência!"
+        ),
+        color=0xff6b6b,
+    )
         name="🔄 Turno atual", 
         value=game.get_current_player().mention, 
         inline=True
