@@ -37,7 +37,7 @@ TwitchConfig = Dict[str, str]
 posted_clips: Dict[int, Set[str]] = {}
 last_check_time: Dict[int, datetime] = {}
 # ---- Utilidades Twitch ----
-        "grant_type": "client_credentials"
+        "grant_type": "client_credentials",
 
             async with session.post(url, data=params, timeout=CLIP_API_TIMEOUT) as resp:
                 resp.raise_for_status()
