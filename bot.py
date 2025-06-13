@@ -45,10 +45,7 @@ async def get_twitch_token() -> Optional[str]:
             return data.get("access_token")
     except Exception as e:
         print(f"Erro inesperado ao obter token: {e}")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, timeout=CLIP_API_TIMEOUT) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
+async def get_broadcaster_id(username: str, token: str) -> Optional[str]:
                 if data.get("data"):
                     return data["data"][0]["id"]
         print(f"Erro ao buscar ID do canal: {e}")
@@ -57,10 +54,7 @@ async def get_twitch_token() -> Optional[str]:
 def clip_video_url(thumbnail_url: str) -> str:
     base = thumbnail_url.split("-preview-", 1)[0]
     return base + ".mp4"
-async def fetch_clips(broadcaster_id: str, start: datetime, end: datetime) -> List[dict]:
-    params = {
-        "broadcaster_id": broadcaster_id,
-        "first": 100,
+async def fetch_clips(broadcaster_id: str, start: datetime, end: datetime, token: str) -> List[dict]:
         "started_at": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "ended_at": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -132,7 +126,17 @@ async def check_twitch_clips():
         for clip in clips:
             clip_id = clip["id"]
             created = datetime.fromisoformat(clip["created_at"].replace("Z", "+00:00"))
-            if clip_id in posted_clips.get(server_id, set()):
+    token = await get_twitch_token()
+    if not token:
+        embed = discord.Embed(
+            title="❌ Erro",
+            description="Não foi possível obter token da Twitch",
+            color=0xFF0000,
+        )
+        await interaction.followup.send(embed=embed)
+        return
+
+    broadcaster_id = await get_broadcaster_id(username, token)
                 continue
             if created < start:
                 continue
@@ -192,7 +196,15 @@ async def twitch_status(interaction: discord.Interaction):
         channel = bot.get_channel(config['discord_channel'])
 
         embed = discord.Embed(
-            title="📺 Status do Monitoramento Twitch",
+    if not twitch_configs:
+        return
+
+    token = await get_twitch_token()
+    if not token:
+        print("Erro: Não foi possível obter token da Twitch")
+        return
+
+        clips = await fetch_clips(cfg["broadcaster_id"], start, now, token)
             color=0x9146ff
         )
         embed.add_field(name="📺 Canal", value=config['username'], inline=True)
