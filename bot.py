@@ -31,7 +31,7 @@ async def jogos(interaction: discord.Interaction):
         return None
 
     return response.json().get('access_token')
-            f"https://api.twitch.tv/helix/users?login={username}",
+    return data.get("access_token")
             headers=headers,
             timeout=10
         )
