@@ -11,7 +11,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 last_clips = {}
 
 
-    """Print status and start monitoring when the bot is ready."""
+    # Print status and start monitoring when the bot is ready.
     except Exception as e:
         print(f"Erro ao sincronizar comandos: {e}")
     else:
