@@ -24,11 +24,9 @@ TWITCH_SECRET = os.getenv("TWITCH_SECRET")
 # Intervalo entre verificações de novos clips (segundos)
 CLIP_CHECK_SECONDS = int(os.getenv("CLIP_CHECK_SECONDS", "30"))
 # Quantas horas no passado considerar ao iniciar o monitoramento
-CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "2"))
-# Mostrar visualizações, autor e data dos clips
-CLIP_SHOW_DETAILS = os.getenv("CLIP_SHOW_DETAILS", "true").lower() == "true"
+CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "0.2"))
 # Tempo limite de chamadas HTTP
-CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "10"))
+CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "30"))
 # Enviar video mp4 como anexo
 CLIP_ATTACH_VIDEO = os.getenv("CLIP_ATTACH_VIDEO", "false").lower() == "true"
 # Debug mode
@@ -163,27 +161,47 @@ async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: dat
         return []
 
 def create_clip_embed(clip: dict, username: str) -> discord.Embed:
-    """Cria embed do Discord para um clip."""
+    """Cria embed simplificado do Discord para um clip."""
     embed = discord.Embed(
-        title=clip.get("title", "Clip"),
-        url=clip.get("url"),
         color=0x9146FF,
+        description="🎬 Novo clip!"
     )
+
     embed.add_field(name="📺 Canal", value=username, inline=True)
+    embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
 
-    if CLIP_SHOW_DETAILS:
-        embed.add_field(name="👀 Views", value=str(clip.get("view_count", 0)), inline=True)
-        embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
-
-        created = clip.get("created_at", "")
-        if created:
-            dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
-            embed.add_field(name="📅 Data", value=dt, inline=True)
-
-    if clip.get("thumbnail_url"):
-        embed.set_image(url=clip["thumbnail_url"])
+    created = clip.get("created_at", "")
+    if created:
+        dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
+        embed.add_field(name="📅 Data", value=dt, inline=True)
 
     return embed
+
+async def download_clip_video(clip: dict) -> Optional[discord.File]:
+    """Baixa o vídeo do clip e retorna como arquivo do Discord."""
+    if not clip.get("thumbnail_url"):
+        return None
+
+    video_url = clip_video_url(clip["thumbnail_url"])
+    debug_print(f"Baixando vídeo do clip: {video_url}")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(video_url, timeout=CLIP_API_TIMEOUT) as resp:
+                resp.raise_for_status()
+                data = await resp.read()
+
+                # Verifica se o arquivo não está vazio
+                if len(data) == 0:
+                    print(f"Vídeo do clip está vazio: {video_url}")
+                    return None
+
+                debug_print(f"Vídeo baixado com sucesso: {len(data)} bytes")
+                return discord.File(io.BytesIO(data), filename=f"clip_{clip['id']}.mp4")
+
+    except Exception as e:
+        print(f"Erro ao baixar vídeo do clip: {e}")
+        return None
 
 # ---- Eventos do Bot ----
 @bot.event
@@ -256,8 +274,9 @@ async def twitch_setup(
         description=f"Monitorando clips de **{username}** em {canal_discord.mention}",
         color=0x00ff00
     )
-    embed.add_field(name="🔄 Frequência", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=False)
-    embed.add_field(name="📅 Lookback", value=f"Últimas {CLIP_LOOKBACK_HOURS}h", inline=False)
+    embed.add_field(name="🔄 Frequência", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=True)
+    embed.add_field(name="📅 Lookback", value=f"Últimas {CLIP_LOOKBACK_HOURS}h", inline=True)
+    embed.add_field(name="🎬 Vídeo anexo", value="✅ Ativado" if CLIP_ATTACH_VIDEO else "❌ Desativado", inline=True)
 
     await interaction.followup.send(embed=embed)
     print(f"Configuração salva para {username} (ID: {broadcaster_id})")
@@ -283,6 +302,7 @@ async def twitch_status(interaction: discord.Interaction):
     embed.add_field(name="💬 Canal Discord", value=channel.mention if channel else "?", inline=True)
     embed.add_field(name="🔄 Frequência", value=f"{CLIP_CHECK_SECONDS}s", inline=True)
     embed.add_field(name="📊 Clips enviados", value=len(posted_clips.get(server_id, set())), inline=True)
+    embed.add_field(name="🎬 Vídeo anexo", value="✅ Ativado" if CLIP_ATTACH_VIDEO else "❌ Desativado", inline=True)
 
     last_check = last_check_time.get(server_id)
     if last_check:
@@ -338,7 +358,7 @@ async def twitch_test(interaction: discord.Interaction):
                 dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m %H:%M")
                 embed.add_field(
                     name=f"#{i} {clip.get('title', 'Sem título')[:30]}...",
-                    value=f"📅 {dt} | 👀 {clip.get('view_count', 0)}",
+                    value=f"📅 {dt} | 👤 {clip.get('creator_name', '?')}",
                     inline=False
                 )
 
@@ -409,6 +429,8 @@ async def check_twitch_clips():
                 clip_id = clip["id"]
                 created = datetime.fromisoformat(clip["created_at"].replace("Z", "+00:00"))
 
+                debug_print(f"Clip {clip_id}: criado em {created} (start={start}, now={now})")
+
                 # Pular clips já enviados
                 if clip_id in posted_clips.get(server_id, set()):
                     debug_print(f"Clip {clip_id} já foi enviado")
@@ -424,27 +446,31 @@ async def check_twitch_clips():
                     print(f"Canal Discord não encontrado: {cfg['discord_channel']}")
                     continue
 
-                # Criar embed e enviar
+                # Criar embed simplificado
                 embed = create_clip_embed(clip, cfg["username"])
                 files = []
 
-                # Anexar vídeo se configurado
-                if CLIP_ATTACH_VIDEO and clip.get("thumbnail_url"):
-                    video_url = clip_video_url(clip["thumbnail_url"])
-                    try:
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get(video_url, timeout=CLIP_API_TIMEOUT) as resp:
-                                resp.raise_for_status()
-                                data = await resp.read()
-                                files.append(discord.File(io.BytesIO(data), filename="clip.mp4"))
-                    except Exception as e:
-                        print(f"Erro ao baixar vídeo do clip: {e}")
+                # Baixar e anexar vídeo se configurado
+                if CLIP_ATTACH_VIDEO:
+                    video_file = await download_clip_video(clip)
+                    if video_file:
+                        files.append(video_file)
+                        debug_print(f"Vídeo do clip baixado: {clip.get('title', 'Sem título')}")
 
                 try:
-                    await channel.send(content=clip.get("url"), embed=embed, files=files)
+                    # Mensagem principal com título e link
+                    clip_title = clip.get("title", "Clip sem título")
+                    message_content = f"**Novo clip de {cfg['username']}:** {clip_title}\n{clip.get('url')}"
+
+                    await channel.send(content=message_content, embed=embed, files=files)
+
                     posted_clips.setdefault(server_id, set()).add(clip_id)
                     new_clips_count += 1
-                    print(f"✅ Novo clip enviado: {clip.get('title', 'Sem título')} de {cfg['username']}")
+
+                    if CLIP_ATTACH_VIDEO and files:
+                        print(f"✅ Novo clip enviado com vídeo: {clip_title} de {cfg['username']}")
+                    else:
+                        print(f"✅ Novo clip enviado: {clip_title} de {cfg['username']}")
 
                     # Atualizar último tempo de verificação
                     if created > last_check_time.get(server_id, start):
@@ -489,4 +515,6 @@ if __name__ == "__main__":
         print("🚀 Iniciando bot...")
         if DEBUG_MODE:
             print("🐛 Modo debug ativado")
+        if CLIP_ATTACH_VIDEO:
+            print("🎬 Anexo de vídeo ativado")
         bot.run(DISCORD_TOKEN)
