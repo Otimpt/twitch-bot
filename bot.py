@@ -11,7 +11,6 @@ twitch_configs = {}
 last_clips = {}
 
 
-    del active_games[user_game]
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="jogos", description="Lista todos os jogos disponíveis")
