@@ -15,9 +15,10 @@ last_clips = {}
     except Exception as e:
         print(f"Erro ao sincronizar comandos: {e}")
     else:
-        print(f"Erro ao sincronizar comandos: {e}")
 
-
+    # Inicia o monitoramento de clips
+    if not check_twitch_clips.is_running():
+        check_twitch_clips.start()
         "client_secret": TWITCH_SECRET,
         "grant_type": "client_credentials",
         async with aiohttp.ClientSession() as session:
@@ -136,9 +137,7 @@ async def twitch_setup(
         embed.add_field(
             name="💬 Canal Discord",
             value=channel.mention if channel else "Canal não encontrado",
-            inline=True,
-        embed.add_field(
-            name="🔄 Última verificação", value="A cada 5 minutos", inline=True
+    embed.add_field(name="✅ Status", value="Monitoramento ativo", inline=False)
         )
         embed.add_field(
             name="📊 Clips monitorados",
@@ -233,13 +232,9 @@ async def twitch_setup(
                 if created_at >= latest_time:
                     latest_time = created_at
 
-            # Avança somente se algum clip mais novo foi encontrado
-            if latest_time > last_check_time[server_id]:
-                last_check_time[server_id] = latest_time
+        embed = discord.Embed(title="📺 Status do Monitoramento Twitch", color=0x9146FF)
 
-            # Mantém apenas os últimos 50 clips na memória
-            if len(last_clips[server_id]) > 50:
-                last_clips[server_id] = set(list(last_clips[server_id])[-50:])
+@bot.tree.command(name="help", description="Mostra todos os comandos disponíveis")
 
         except Exception as e:
             print(f"Erro ao verificar clips para servidor {server_id}: {e}")
