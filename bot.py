@@ -39,7 +39,9 @@ last_check_time: Dict[int, datetime] = {}
 # -------------------- Utilidades Twitch --------------------
 async def get_twitch_token() -> Optional[str]:
     """Solicita um token de acesso à API da Twitch."""
-            async with session.post(url, data=params, timeout=CLIP_API_TIMEOUT) as resp:
+            async with session.post(
+                url, data=params, timeout=CLIP_API_TIMEOUT
+            ) as resp:
         print(f"Erro ao obter token: {e}")
     return None
 async def get_broadcaster_id(username: str) -> Optional[str]:
