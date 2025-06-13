@@ -152,8 +152,19 @@ async def on_ready():
 
 # ---- Comandos do Bot ----
 @bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips")
-async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, canal_discord: discord.TextChannel):
-    await interaction.response.defer()
+async def twitch_setup(
+    interaction: discord.Interaction,
+    canal_twitch: str,
+    canal_discord: discord.TextChannel,
+):
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        # The interaction is no longer valid (e.g. timed out)
+        return
+    except discord.HTTPException as e:
+        print(f"Erro ao responder intera\u00e7\u00e3o: {e}")
+        return
 
     username = canal_twitch.replace("@", "").lower()
     server_id = interaction.guild.id
