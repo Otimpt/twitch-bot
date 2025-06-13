@@ -536,7 +536,7 @@ async def check_twitch_clips():
 
                     await channel.send(content=message_content, embed=embed, files=files)
 
-                    posted_clips.setdefault(server_id, set()).add(clip_id)
+                    # posted_clips.setdefault(server_id, set()).add(clip_id)
                     new_clips_count += 1
 
                     if CLIP_ATTACH_VIDEO and files:
