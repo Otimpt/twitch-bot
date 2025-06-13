@@ -1,16 +1,11 @@
-# Bot Discord - Jogos e Twitch
+# Bot Discord - Twitch Clips
 
-Bot Discord com jogos de mesa (xadrez) e integração automática com clips da Twitch.
+Bot do Discord para enviar automaticamente clips recentes da Twitch.
 
 ## Pré-requisitos
 - Python 3.10 ou superior
 - Conta no Discord e na Twitch para obter as credenciais
 ## Funcionalidades
-
-### 🎮 Jogos
-- **Xadrez completo** com validação de movimentos
-- Sistema de turnos
-- Comandos intuitivos com slash commands (/)
 
 ### 📺 Integração Twitch
 - Monitoramento automático de novos clips
@@ -19,13 +14,6 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 - Checagem a cada 5 minutos
 
 ## Comandos
-
-### Jogos
-- `/xadrez @oponente` - Inicia um jogo de xadrez
-- `/mover e2e4` - Faz uma jogada (formato UCI)
-- `/tabuleiro` - Mostra o estado atual do tabuleiro
-- `/desistir` - Desiste do jogo atual
-- `/jogos` - Lista todos os jogos disponíveis
 
 ### Twitch
 - `/twitch_setup canal_twitch #canal_discord` - Configura monitoramento
