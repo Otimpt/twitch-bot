@@ -1,13 +1,11 @@
-# Bot Discord - Jogos e Twitch
+# Bot Discord - Twitch Clips
 
-Bot Discord com jogos de mesa (xadrez) e integração automática com clips da Twitch.
+Bot do Discord para enviar automaticamente clips recentes da Twitch.
 
+## Pré-requisitos
+- Python 3.10 ou superior
+- Conta no Discord e na Twitch para obter as credenciais
 ## Funcionalidades
-
-### 🎮 Jogos
-- **Xadrez completo** com validação de movimentos
-- Sistema de turnos
-- Comandos intuitivos com slash commands (/)
 
 ### 📺 Integração Twitch
 - Monitoramento automático de novos clips
@@ -17,21 +15,14 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 
 ## Comandos
 
-### Jogos
-- `/xadrez @oponente` - Inicia um jogo de xadrez
-- `/mover e2e4` - Faz uma jogada (formato UCI)
-- `/tabuleiro` - Mostra o estado atual do tabuleiro
-- `/desistir` - Desiste do jogo atual
-- `/jogos` - Lista todos os jogos disponíveis
-
 ### Twitch
 - `/twitch_setup canal_twitch #canal_discord` - Configura monitoramento
 - `/twitch_status` - Mostra status do monitoramento
 
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
-2. A cada 5 minutos o bot consulta a API da Twitch em busca de novos clips do canal configurado.
-3. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+2. A cada `CLIP_CHECK_SECONDS` segundos o bot consulta a API da Twitch em busca de novos clips do canal configurado (30s por padrão).
+3. Sempre que um clip novo for encontrado, ele é enviado ao Discord com o link e um embed contendo os detalhes.
 4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades
@@ -41,18 +32,19 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 ## Configuração
 
 1. **Clone o repositório**
-2. **Instale as dependências:**
+2. **Instale as dependências com Python 3:**
    ```bash
-   pip install -r requirements.txt
+   python3 -m pip install -r requirements.txt
    ```
 
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
-   - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
+   - Defina `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+   - Opcionalmente ajuste `CLIP_CHECK_SECONDS`, `CLIP_LOOKBACK_HOURS`, `CLIP_SHOW_DETAILS`, `CLIP_ATTACH_VIDEO` e `CLIP_API_TIMEOUT`
 
-4. **Execute o bot:**
+4. **Execute o bot usando Python 3:**
    ```bash
-   python bot.py
+   python3 bot.py
    ```
 
 ## Deploy
@@ -80,6 +72,7 @@ Bot Discord com jogos de mesa (xadrez) e integração automática com clips da T
 2. Registre uma nova aplicação
 3. Copie Client ID e Client Secret
 4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+5. Demais variáveis de configuração estão documentadas em `.env.example` e no passo de configuração.
 
 
 ## Permissões Necessárias
