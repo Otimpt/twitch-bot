@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import discord
 from discord.ext import commands, tasks
-import asyncio
 import requests
 import json
 import os
