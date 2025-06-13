@@ -12,8 +12,12 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
+
 # Carrega variáveis de ambiente
+load_dotenv()
+
 # ---- Configuração ----
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_SECRET = os.getenv("TWITCH_SECRET")
 
@@ -27,6 +31,7 @@ CLIP_SHOW_DETAILS = os.getenv("CLIP_SHOW_DETAILS", "true").lower() == "true"
 CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "10"))
 # Enviar video mp4 como anexo
 CLIP_ATTACH_VIDEO = os.getenv("CLIP_ATTACH_VIDEO", "false").lower() == "true"
+
 # Configuração do bot
 intents = discord.Intents.default()
 intents.message_content = True
@@ -34,35 +39,81 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Por servidor: configurações, ids de clips enviados e horário da última verificação
 TwitchConfig = Dict[str, str]
+twitch_configs: Dict[int, TwitchConfig] = {}
 posted_clips: Dict[int, Set[str]] = {}
 last_check_time: Dict[int, datetime] = {}
-# ---- Utilidades Twitch ----
-        "grant_type": "client_credentials",
 
+# ---- Utilidades Twitch ----
+async def get_twitch_token() -> Optional[str]:
+    """Solicita um token de acesso à API da Twitch."""
+    url = "https://id.twitch.tv/oauth2/token"
+    params = {
+        "client_id": TWITCH_CLIENT_ID,
+        "client_secret": TWITCH_SECRET,
+        "grant_type": "client_credentials"
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
             async with session.post(url, data=params, timeout=CLIP_API_TIMEOUT) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
                 return data.get("access_token")
+    except Exception as e:
         print(f"Erro ao obter token: {e}")
         return None
+
+async def get_broadcaster_id(username: str, token: str) -> Optional[str]:
     """Busca o ID do broadcaster pelo nome de usuário."""
     url = "https://api.twitch.tv/helix/users"
+    headers = {
+        "Client-ID": TWITCH_CLIENT_ID,
         "Authorization": f"Bearer {token}"
+    }
     params = {"login": username}
 
+    try:
+        async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params, timeout=CLIP_API_TIMEOUT) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                if data.get("data"):
+                    return data["data"][0]["id"]
                 return None
     except Exception as e:
+        print(f"Erro ao buscar ID do canal: {e}")
         return None
+
+def clip_video_url(thumbnail_url: str) -> str:
     """Converte URL da thumbnail para URL do vídeo."""
+    base = thumbnail_url.split("-preview-", 1)[0]
+    return base + ".mp4"
+
+async def fetch_clips(broadcaster_id: str, start: datetime, end: datetime, token: str) -> List[dict]:
     """Busca clips de um broadcaster em um período específico."""
+    params = {
+        "broadcaster_id": broadcaster_id,
+        "first": 100,
+        "started_at": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ended_at": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    url = "https://api.twitch.tv/helix/clips"
     headers = {
         "Client-ID": TWITCH_CLIENT_ID,
         "Authorization": f"Bearer {token}"
     }
 
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, params=params, timeout=CLIP_API_TIMEOUT) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                return data.get("data", [])
     except Exception as e:
+        print(f"Erro ao buscar clips: {e}")
         return []
+
+def create_clip_embed(clip: dict, username: str) -> discord.Embed:
     """Cria embed do Discord para um clip."""
     embed = discord.Embed(
         title=clip.get("title", "Clip"),
@@ -98,7 +149,9 @@ async def on_ready():
 
     if not check_twitch_clips.is_running():
         check_twitch_clips.start()
+
 # ---- Comandos do Bot ----
+@bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips")
 async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, canal_discord: discord.TextChannel):
     await interaction.response.defer()
 
@@ -106,25 +159,74 @@ async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, cana
     server_id = interaction.guild.id
 
     # Obter token e ID do broadcaster
+    token = await get_twitch_token()
+    if not token:
+        embed = discord.Embed(
+            title="❌ Erro",
+            description="Não foi possível obter token da Twitch",
             color=0xff0000
-            title="❌ Canal não encontrado",
-            color=0xff0000
-    # Salvar configuração
-        "discord_channel": canal_discord.id
+        )
+        await interaction.followup.send(embed=embed)
+        return
 
+    broadcaster_id = await get_broadcaster_id(username, token)
+    if not broadcaster_id:
+        embed = discord.Embed(
+            title="❌ Canal não encontrado",
+            description=f"Não foi possível encontrar o canal **{username}**",
+            color=0xff0000
+        )
+        await interaction.followup.send(embed=embed)
+        return
+
+    # Salvar configuração
+    twitch_configs[server_id] = {
+        "username": username,
+        "broadcaster_id": broadcaster_id,
+        "discord_channel": canal_discord.id
+    }
+
+    posted_clips[server_id] = set()
+    last_check_time[server_id] = datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
+
+    embed = discord.Embed(
         title="✅ Configuração salva!",
         description=f"Monitorando clips de **{username}** em {canal_discord.mention}",
         color=0x00ff00
+    )
+    embed.add_field(name="🔄 Frequência", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=False)
+
     await interaction.followup.send(embed=embed)
 
-            color=0xff0000
+@bot.tree.command(name="twitch_status", description="Mostra status do monitoramento")
+async def twitch_status(interaction: discord.Interaction):
+    server_id = interaction.guild.id
 
+    if server_id not in twitch_configs:
+        embed = discord.Embed(
+            title="❌ Twitch não configurado",
+            description="Use `/twitch_setup` para configurar o monitoramento.",
+            color=0xff0000
+        )
+        await interaction.response.send_message(embed=embed)
+        return
+
+    config = twitch_configs[server_id]
+    channel = bot.get_channel(config["discord_channel"])
+
+    embed = discord.Embed(title="📺 Status do Monitoramento", color=0x9146FF)
     embed.add_field(name="📺 Canal", value=config["username"], inline=True)
     embed.add_field(name="💬 Canal Discord", value=channel.mention if channel else "?", inline=True)
     embed.add_field(name="🔄 Frequência", value=f"{CLIP_CHECK_SECONDS}s", inline=True)
     embed.add_field(name="📊 Clips enviados", value=len(posted_clips.get(server_id, set())), inline=True)
+
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="ping", description="Verifica a latência")
+async def ping(interaction: discord.Interaction):
+    latency = round(bot.latency * 1000)
     await interaction.response.send_message(f"🏓 Pong! {latency}ms")
+
 @bot.tree.command(name="help", description="Mostra todos os comandos disponíveis")
 async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -132,6 +234,7 @@ async def help_command(interaction: discord.Interaction):
         description="Aqui estão todos os comandos disponíveis:",
         color=0x0099ff
     )
+
     embed.add_field(
         name="📺 Twitch",
         value="`/twitch_setup` - Configura monitoramento\n`/twitch_status` - Status do monitoramento",
@@ -150,7 +253,16 @@ async def help_command(interaction: discord.Interaction):
 @tasks.loop(seconds=CLIP_CHECK_SECONDS)
 async def check_twitch_clips():
     """Loop principal que verifica novos clips."""
+    if not twitch_configs:
+        return
+
+    token = await get_twitch_token()
+    if not token:
+        print("Erro: Não foi possível obter token da Twitch")
+        return
+
     now = datetime.now(timezone.utc)
+
     for server_id, cfg in list(twitch_configs.items()):
         try:
             start = last_check_time.get(server_id, now - timedelta(hours=CLIP_LOOKBACK_HOURS))
@@ -202,121 +314,9 @@ async def check_twitch_clips():
             print(f"Erro ao verificar clips para servidor {server_id}: {e}")
 
 # ---- Execução ----
+if __name__ == "__main__":
     missing_vars = []
 
-        missing_vars.append("DISCORD_TOKEN")
-        missing_vars.append("TWITCH_CLIENT_ID")
-        missing_vars.append("TWITCH_SECRET")
-
-    if missing_vars:
-        print(f"❌ Variáveis de ambiente faltando: {', '.join(missing_vars)}")
-        if "DISCORD_TOKEN" in missing_vars:
-            print("Bot não pode iniciar sem DISCORD_TOKEN.")
-            exit(1)
-        else:
-            print("⚠️ Twitch desabilitado. Defina TWITCH_CLIENT_ID e TWITCH_SECRET para habilitar.")
-
-    if DISCORD_TOKEN:
-        print("🚀 Iniciando bot...")
-
-
-# -------------------- Execução --------------------
-        print("❌ Variáveis faltando: " + ", ".join(missing))
-                        else:
-                            print(f"[DEBUG] Enviando link do clip {clip_id}")
-                            await channel.send(content=message)
-
-                    last_clips[server_id].add(clip_id)
-
-                if created_at >= latest_time:
-                    latest_time = created_at
-
-        embed = discord.Embed(title="📺 Status do Monitoramento Twitch", color=0x9146FF)
-
-@bot.tree.command(name="help", description="Mostra todos os comandos disponíveis")
-
-        except Exception as e:
-            print(f"Erro ao verificar clips para servidor {server_id}: {e}")
-
-@bot.tree.command(name="twitch_status", description="Mostra o status do monitoramento da Twitch")
-async def twitch_status(interaction: discord.Interaction):
-    server_id = interaction.guild.id
-
-    if server_id not in twitch_configs:
-        embed = discord.Embed(
-            title="❌ Twitch não configurado",
-            description="Use `/twitch_setup` para configurar o monitoramento de clips.",
-            color=0xff0000
-        )
-    else:
-        config = twitch_configs[server_id]
-        channel = bot.get_channel(config['discord_channel'])
-
-        embed = discord.Embed(
-    if not twitch_configs:
-        return
-
-    token = await get_twitch_token()
-    if not token:
-        print("Erro: Não foi possível obter token da Twitch")
-        return
-
-        clips = await fetch_clips(cfg["broadcaster_id"], start, now, token)
-            color=0x9146ff
-        )
-        embed.add_field(name="📺 Canal", value=config['username'], inline=True)
-        embed.add_field(name="💬 Canal Discord", value=channel.mention if channel else "Canal não encontrado", inline=True)
-        embed.add_field(name="✅ Status", value="Ativo", inline=True)
-        embed.add_field(name="🔄 Última verificação", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=True)
-        embed.add_field(name="📊 Clips monitorados", value=len(last_clips.get(server_id, [])), inline=True)
-
-    await interaction.response.send_message(embed=embed)
-
-# ==================== COMANDOS GERAIS ====================
-
-@bot.tree.command(name="ping", description="Verifica a latência do bot")
-async def ping(interaction: discord.Interaction):
-    latency = round(bot.latency * 1000)
-    embed = discord.Embed(
-        title="🏓 Pong!",
-        description=f"Latência: **{latency}ms**",
-        color=0x00ff00
-    )
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="help", description="Mostra todos os comandos disponíveis")
-async def help_command(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🤖 Comandos do Bot",
-        description="Aqui estão todos os comandos disponíveis:",
-        color=0x0099ff
-    )
-
-    embed.add_field(
-        name="📺 Twitch",
-        value="`/twitch_setup` - Configura monitoramento\n`/twitch_status` - Status do monitoramento",
-        inline=False
-    )
-
-    embed.add_field(
-        name="🔧 Utilidades",
-        value="`/ping` - Verifica latência\n`/help` - Mostra esta mensagem",
-        inline=False
-    )
-
-    await interaction.response.send_message(embed=embed)
-
-# Inicia o bot
-if __name__ == "__main__":
-    missing = []
-        missing.append("DISCORD_TOKEN")
-    if not TWITCH_CLIENT_ID:
-        missing.append("TWITCH_CLIENT_ID")
-    if not TWITCH_SECRET:
-        missing.append("TWITCH_SECRET")
-
-    if missing:
-        print("❌ Variáveis de ambiente faltando: " + ", ".join(missing))
     if not DISCORD_TOKEN:
         missing_vars.append("DISCORD_TOKEN")
     if not TWITCH_CLIENT_ID:
@@ -333,4 +333,5 @@ if __name__ == "__main__":
             print("⚠️ Twitch desabilitado. Defina TWITCH_CLIENT_ID e TWITCH_SECRET para habilitar.")
 
     if DISCORD_TOKEN:
+        print("🚀 Iniciando bot...")
         bot.run(DISCORD_TOKEN)
