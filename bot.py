@@ -25,6 +25,8 @@ TWITCH_SECRET = os.getenv("TWITCH_SECRET")
 CLIP_CHECK_SECONDS = int(os.getenv("CLIP_CHECK_SECONDS", "30"))
 # Quantas horas no passado considerar ao iniciar o monitoramento
 CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "0.2"))
+# Mostrar visualizações, autor e data dos clips
+CLIP_SHOW_DETAILS = os.getenv("CLIP_SHOW_DETAILS", "true").lower() == "true"
 # Tempo limite de chamadas HTTP
 CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "30"))
 # Enviar video mp4 como anexo
@@ -160,20 +162,27 @@ async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: dat
         print(f"Erro ao buscar clips: {e}")
         return []
 
-def create_clip_embed(clip: dict, username: str) -> discord.Embed:
-    """Cria embed simplificado do Discord para um clip."""
+def create_clip_embed(clip: dict, username: str, include_image: bool = True) -> discord.Embed:
+    """Cria embed do Discord para um clip."""
     embed = discord.Embed(
+        title=clip.get("title", "Clip"),
+        url=clip.get("url"),
         color=0x9146FF,
-        description="🎬 Novo clip!"
     )
-
     embed.add_field(name="📺 Canal", value=username, inline=True)
-    embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
 
-    created = clip.get("created_at", "")
-    if created:
-        dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
-        embed.add_field(name="📅 Data", value=dt, inline=True)
+    if CLIP_SHOW_DETAILS:
+        embed.add_field(name="👀 Views", value=str(clip.get("view_count", 0)), inline=True)
+        embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
+
+        created = clip.get("created_at", "")
+        if created:
+            dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
+            embed.add_field(name="📅 Data", value=dt, inline=True)
+
+    # Só adiciona a imagem se não for anexar o vídeo
+    if include_image and clip.get("thumbnail_url") and not CLIP_ATTACH_VIDEO:
+        embed.set_image(url=clip["thumbnail_url"])
 
     return embed
 
@@ -358,7 +367,7 @@ async def twitch_test(interaction: discord.Interaction):
                 dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m %H:%M")
                 embed.add_field(
                     name=f"#{i} {clip.get('title', 'Sem título')[:30]}...",
-                    value=f"📅 {dt} | 👤 {clip.get('creator_name', '?')}",
+                    value=f"📅 {dt} | 👀 {clip.get('view_count', 0)}",
                     inline=False
                 )
 
@@ -446,8 +455,8 @@ async def check_twitch_clips():
                     print(f"Canal Discord não encontrado: {cfg['discord_channel']}")
                     continue
 
-                # Criar embed simplificado
-                embed = create_clip_embed(clip, cfg["username"])
+                # Criar embed
+                embed = create_clip_embed(clip, cfg["username"], include_image=not CLIP_ATTACH_VIDEO)
                 files = []
 
                 # Baixar e anexar vídeo se configurado
@@ -455,22 +464,22 @@ async def check_twitch_clips():
                     video_file = await download_clip_video(clip)
                     if video_file:
                         files.append(video_file)
-                        debug_print(f"Vídeo do clip baixado: {clip.get('title', 'Sem título')}")
+                        print(f"🎬 Vídeo do clip baixado: {clip.get('title', 'Sem título')}")
+                    else:
+                        print(f"⚠️ Não foi possível baixar vídeo do clip: {clip.get('title', 'Sem título')}")
 
                 try:
-                    # Mensagem principal com título e link
-                    clip_title = clip.get("title", "Clip sem título")
-                    message_content = f"**Novo clip de {cfg['username']}:** {clip_title}\n{clip.get('url')}"
-
+                    # Enviar mensagem com embed e arquivos (se houver)
+                    message_content = f"🎬 **Novo clip de {cfg['username']}!**\n{clip.get('url')}"
                     await channel.send(content=message_content, embed=embed, files=files)
 
                     posted_clips.setdefault(server_id, set()).add(clip_id)
                     new_clips_count += 1
 
                     if CLIP_ATTACH_VIDEO and files:
-                        print(f"✅ Novo clip enviado com vídeo: {clip_title} de {cfg['username']}")
+                        print(f"✅ Novo clip enviado com vídeo: {clip.get('title', 'Sem título')} de {cfg['username']}")
                     else:
-                        print(f"✅ Novo clip enviado: {clip_title} de {cfg['username']}")
+                        print(f"✅ Novo clip enviado: {clip.get('title', 'Sem título')} de {cfg['username']}")
 
                     # Atualizar último tempo de verificação
                     if created > last_check_time.get(server_id, start):
