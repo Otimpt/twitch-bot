@@ -12,10 +12,9 @@ last_clips = {}
 
 
     # Print status and start monitoring when the bot is ready.
+        print(f"Sincronizados {len(synced)} comando(s)")
     except Exception as e:
         print(f"Erro ao sincronizar comandos: {e}")
-    else:
-
     # Inicia o monitoramento de clips
     if not check_twitch_clips.is_running():
         check_twitch_clips.start()
