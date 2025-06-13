@@ -11,7 +11,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 last_clips = {}
 
 
-    print(f"bot está online!")
+     print(f"{bot.user} está online!")
         print(f"Sincronizados {len(synced)} comando(s)")
         print(f"Erro ao sincronizar comandos: {e}")
 
