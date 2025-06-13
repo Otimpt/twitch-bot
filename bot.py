@@ -1,227 +1,164 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Discord bot que monitora clips recentes da Twitch."""
+
+import os
+import io
+import asyncio
+from datetime import datetime, timezone, timedelta
+from typing import Dict, Set, List, Optional
+
+import aiohttp
 import discord
 from discord.ext import commands, tasks
-import json
-import os
-import aiohttp
 from dotenv import load_dotenv
-from datetime import datetime
+# -------------------- Configuração --------------------
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
+TWITCH_SECRET = os.getenv("TWITCH_SECRET")
+
+# Intervalo entre verificações de novos clips (segundos)
+CLIP_CHECK_SECONDS = int(os.getenv("CLIP_CHECK_SECONDS", "30"))
+# Quantas horas no passado considerar ao iniciar o monitoramento
+CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "2"))
+# Mostrar visualizações, autor e data dos clips
+CLIP_SHOW_DETAILS = os.getenv("CLIP_SHOW_DETAILS", "true").lower() == "true"
+# Tempo limite de chamadas HTTP
+CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "10"))
+# Enviar video mp4 como anexo
+CLIP_ATTACH_VIDEO = os.getenv("CLIP_ATTACH_VIDEO", "false").lower() == "true"
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
-last_clips = {}
+
+# Por servidor: configurações, ids de clips enviados e horário da última verificação
+TwitchConfig = Dict[str, str]
+twitch_configs: Dict[int, TwitchConfig] = {}
+posted_clips: Dict[int, Set[str]] = {}
+last_check_time: Dict[int, datetime] = {}
+# -------------------- Utilidades Twitch --------------------
+async def get_twitch_token() -> Optional[str]:
+    """Solicita um token de acesso à API da Twitch."""
+            async with session.post(url, data=params, timeout=CLIP_API_TIMEOUT) as resp:
+        print(f"Erro ao obter token: {e}")
+    return None
+async def get_broadcaster_id(username: str) -> Optional[str]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=CLIP_API_TIMEOUT) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                if data.get("data"):
+                    return data["data"][0]["id"]
+        print(f"Erro ao buscar ID do canal: {e}")
+    return None
+
+def clip_video_url(thumbnail_url: str) -> str:
+    base = thumbnail_url.split("-preview-", 1)[0]
+    return base + ".mp4"
+async def fetch_clips(broadcaster_id: str, start: datetime, end: datetime) -> List[dict]:
+    params = {
+        "broadcaster_id": broadcaster_id,
+        "first": 100,
+        "started_at": start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ended_at": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    url = "https://api.twitch.tv/helix/clips"
+            async with session.get(url, headers=headers, params=params, timeout=CLIP_API_TIMEOUT) as resp:
+        print(f"Erro ao buscar clips: {e}")
+    return []
+def create_clip_embed(clip: dict, username: str) -> discord.Embed:
+    embed = discord.Embed(
+        title=clip.get("title", "Clip"),
+        url=clip.get("url"),
+        color=0x9146FF,
+    )
+    embed.add_field(name="📺 Canal", value=username, inline=True)
+    if CLIP_SHOW_DETAILS:
+        embed.add_field(name="👀 Views", value=str(clip.get("view_count", 0)), inline=True)
+        embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
+        created = clip.get("created_at", "")
+        if created:
+            dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
+            embed.add_field(name="📅 Data", value=dt, inline=True)
+    if clip.get("thumbnail_url"):
+        embed.set_image(url=clip["thumbnail_url"])
+    return embed
 
 
+# -------------------- Comandos do Bot --------------------
+
+@bot.event
+async def on_ready():
     # Print status and start monitoring when the bot is ready.
+    print(f"{bot.user} está online!")
+    try:
+        synced = await bot.tree.sync()
         print(f"Sincronizados {len(synced)} comando(s)")
     except Exception as e:
         print(f"Erro ao sincronizar comandos: {e}")
-    # Inicia o monitoramento de clips
     if not check_twitch_clips.is_running():
         check_twitch_clips.start()
-        "client_secret": TWITCH_SECRET,
-        "grant_type": "client_credentials",
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=params, timeout=10) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                return data.get("access_token")
-    except aiohttp.ClientError as e:
-
-        "Client-ID": TWITCH_CLIENT_ID,
-        "Authorization": f"Bearer {token}",
-    url = f"https://api.twitch.tv/helix/users?login={username}"
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, timeout=10) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-    except aiohttp.ClientError as e:
-    if data.get("data"):
-        return data["data"][0]["id"]
-
-        "Client-ID": TWITCH_CLIENT_ID,
-        "Authorization": f"Bearer {token}",
-    url = (
-        f"https://api.twitch.tv/helix/clips?"
-        f"broadcaster_id={broadcaster_id}&first={limit}"
-    )
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, timeout=10) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                return data.get("data", [])
-    except aiohttp.ClientError as e:
-
-
-@bot.tree.command(
-    name="twitch_setup", description="Configura monitoramento de clips da Twitch"
-)
-async def twitch_setup(
-    interaction: discord.Interaction,
-    canal_twitch: str,
-    canal_discord: discord.TextChannel,
-):
+@bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips")
+async def twitch_setup(interaction: discord.Interaction, canal_twitch: str, canal_discord: discord.TextChannel):
+    await interaction.response.defer()
     username = canal_twitch.replace("@", "").lower()
-            color=0xFF0000,
-        "username": username,
-        "broadcaster_id": broadcaster_id,
-        "discord_channel": canal_discord.id,
-        color=0x9146FF,
-    embed.add_field(
-        name="🔄 Frequência",
-        value="Verifica novos clips a cada 5 minutos",
-        inline=False,
-    )
+            description=f"Não foi possível encontrar o canal **{username}**",
+    posted_clips[server_id] = set()
+    last_check_time[server_id] = datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
+    embed.add_field(name="🔄 Frequência", value=f"A cada {CLIP_CHECK_SECONDS}s", inline=False)
+@bot.tree.command(name="twitch_status", description="Mostra status do monitoramento")
+            description="Use `/twitch_setup` para configurar o monitoramento.",
+        await interaction.response.send_message(embed=embed)
+        return
+    config = twitch_configs[server_id]
+    channel = bot.get_channel(config["discord_channel"])
+    embed = discord.Embed(title="📺 Status do Monitoramento", color=0x9146FF)
+    embed.add_field(name="📺 Canal", value=config["username"], inline=True)
+    embed.add_field(name="💬 Canal Discord", value=channel.mention if channel else "?", inline=True)
+    embed.add_field(name="🔄 Frequência", value=f"{CLIP_CHECK_SECONDS}s", inline=True)
+@bot.tree.command(name="ping", description="Verifica a latência")
+    await interaction.response.send_message(f"🏓 Pong! {latency}ms")
+# -------------------- Loop de Verificação de Clips --------------------
 
-    for server_id, config in twitch_configs.items():
-            clips = await get_latest_clips(config["broadcaster_id"], 3)
-
-
-                clip_id = clip["id"]
-                    # Novo clip encontrado!
-                    channel = bot.get_channel(config["discord_channel"])
-                            title="🎬 Novo Clip da Twitch!",
-                            description=f"**{clip['title']}**",
-                            url=clip["url"],
-                            color=0x9146FF,
-                        )
-                        embed.add_field(
-                            name="📺 Canal", value=config["username"], inline=True
-                        )
-                        embed.add_field(
-                            name="👀 Views", value=clip["view_count"], inline=True
-                        )
-                        embed.add_field(
-                            name="⏱️ Duração", value=f"{clip['duration']}s", inline=True
-                        )
-                        embed.add_field(
-    name="twitch_setup",
-    description="Configura monitoramento de clips da Twitch",
-    embed.add_field(
-        name="✅ Status", value="Monitoramento ativo", inline=False
-    )
-                            name="📺 Canal",
-                            value=config["username"],
-                            inline=True,
-                        )
-                        embed.add_field(
-                            name="👀 Views",
-                            value=clip["view_count"],
-                            inline=True,
-                            name="⏱️ Duração",
-                            value=f"{clip['duration']}s",
-                            inline=True,
-                            inline=True,
-                        )
-                        embed.add_field(
-                            name="📅 Data",
-                            value=clip["created_at"][:10],
-                            inline=True,
-                        )
-                        if clip.get("thumbnail_url"):
-                            embed.set_image(url=clip["thumbnail_url"])
-
-@bot.tree.command(
-    name="twitch_status",
-    description="Mostra o status do monitoramento da Twitch",
-)
-            color=0xFF0000,
-        channel = bot.get_channel(config["discord_channel"])
-
-        embed = discord.Embed(
-            title="📺 Status do Monitoramento Twitch", color=0x9146FF
-        )
-        embed.add_field(name="📺 Canal", value=config["username"], inline=True)
-        embed.add_field(
-            name="💬 Canal Discord",
-            value=channel.mention if channel else "Canal não encontrado",
-    embed.add_field(name="✅ Status", value="Monitoramento ativo", inline=False)
-        )
-        embed.add_field(
-            name="📊 Clips monitorados",
-            value=len(last_clips.get(server_id, [])),
-            inline=True,
-        )
+@tasks.loop(seconds=CLIP_CHECK_SECONDS)
+async def check_twitch_clips():
+    now = datetime.now(timezone.utc)
+    for server_id, cfg in list(twitch_configs.items()):
+        start = last_check_time.get(server_id, now - timedelta(hours=CLIP_LOOKBACK_HOURS))
+        clips = await fetch_clips(cfg["broadcaster_id"], start, now)
+        clips.sort(key=lambda c: c.get("created_at", ""))
+        for clip in clips:
+            clip_id = clip["id"]
+            created = datetime.fromisoformat(clip["created_at"].replace("Z", "+00:00"))
+            if clip_id in posted_clips.get(server_id, set()):
+                continue
+            if created < start:
+                continue
+            channel = bot.get_channel(cfg["discord_channel"])
+            if not channel:
+                continue
+            embed = create_clip_embed(clip, cfg["username"])
+            files = []
+            if CLIP_ATTACH_VIDEO:
+                video_url = clip_video_url(clip["thumbnail_url"])
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(video_url, timeout=CLIP_API_TIMEOUT) as resp:
+                            resp.raise_for_status()
+                            data = await resp.read()
+                            files.append(discord.File(io.BytesIO(data), filename="clip.mp4"))
+                except Exception as e:
+                    print(f"Erro ao baixar video do clip: {e}")
+            await channel.send(content=clip.get("url"), embed=embed, files=files)
+            posted_clips.setdefault(server_id, set()).add(clip_id)
+            if created > last_check_time.get(server_id, start):
+                last_check_time[server_id] = created
+        if not clips and server_id not in last_check_time:
+            last_check_time[server_id] = now
 
 
-        title="🏓 Pong!",
-        description=f"Latência: **{latency}ms**",
-        color=0x00FF00,
-
-@bot.tree.command(
-    name="help", description="Mostra todos os comandos disponíveis"
-)
-
-        inline=False,
-        inline=False,
-
-    """Verifica novos clips da Twitch periodicamente"""
-    # Copia as configurações para evitar erros caso sejam alteradas
-    # enquanto a iteração estiver em andamento
-    for server_id, config in list(twitch_configs.items()):
-        try:
-            print(
-                f"[DEBUG] Checando clips para {config['username']} em {datetime.now(timezone.utc).isoformat()}"
-            )
-            # Busca clips criados após a última verificação (com margem para atrasos)
-            started_at = (
-                last_check_time.get(
-                    server_id,
-                    datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS),
-                )
-                - timedelta(seconds=CLIP_API_LAG_SECONDS)
-            )
-            clips = await get_latest_clips(
-                config['broadcaster_id'], started_at, max_pages=CLIP_MAX_PAGES
-            )
-            print(f"[DEBUG] {len(clips)} clip(s) encontrados")
-
-            if server_id not in last_clips:
-                last_clips[server_id] = set()
-            if server_id not in last_check_time:
-                last_check_time[server_id] = (
-                    datetime.now(timezone.utc) - timedelta(hours=CLIP_LOOKBACK_HOURS)
-                )
-
-            latest_time = last_check_time[server_id]
-            for clip in clips:
-                clip_id = clip['id']
-                created_at = datetime.fromisoformat(
-                    clip['created_at'].replace('Z', '+00:00')
-                ).astimezone(timezone.utc)
-                if created_at >= last_check_time[server_id] and clip_id not in last_clips[server_id]:
-                    channel = bot.get_channel(config['discord_channel'])
-                    if channel:
-                        message = f"{clip['url']}\n**{clip['title']}**"
-                        details = []
-                        if CLIP_SHOW_DETAILS:
-                            details.append(f"👀 {clip['view_count']} views")
-                            details.append(f"👤 {clip['creator_name']}")
-                            details.append(f"📅 {clip['created_at'][:10]}")
-                        details.append(f"⏱️ {clip['duration']}s")
-                        details.append(f"🎮 {clip.get('game_name', 'N/A')}")
-                        message += "\n" + " | ".join(details)
-
-                        file = None
-                        if CLIP_ATTACH_VIDEO and clip.get('thumbnail_url'):
-                            mp4_url = clip_video_url(clip['thumbnail_url'])
-                            if mp4_url:
-                                try:
-                                    timeout = aiohttp.ClientTimeout(total=CLIP_API_TIMEOUT)
-                                    async with aiohttp.ClientSession(timeout=timeout) as session:
-                                        async with session.get(mp4_url) as resp:
-                                            if resp.status == 200:
-                                                data = await resp.read()
-                                                file = discord.File(BytesIO(data), filename=f"{clip_id}.mp4")
-                                            else:
-                                                print(f"Erro ao baixar vídeo: {resp.status}")
-                                except Exception as e:
-                                    print(f"Erro ao baixar vídeo do clip {clip_id}: {e}")
-
-                        if file:
-                            print(f"[DEBUG] Enviando vídeo do clip {clip_id}")
-                            await channel.send(content=message, file=file)
+# -------------------- Execução --------------------
+        print("❌ Variáveis faltando: " + ", ".join(missing))
                         else:
                             print(f"[DEBUG] Enviando link do clip {clip_id}")
                             await channel.send(content=message)

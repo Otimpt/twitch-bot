@@ -21,8 +21,8 @@ Bot do Discord para enviar automaticamente clips recentes da Twitch.
 
 #### Como funciona
 1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
-2. A cada 5 minutos o bot consulta a API da Twitch em busca de novos clips do canal configurado.
-3. Sempre que um clip novo for encontrado, um embed com os detalhes e o link sera publicado automaticamente no Discord.
+2. A cada `CLIP_CHECK_SECONDS` segundos o bot consulta a API da Twitch em busca de novos clips do canal configurado (30s por padrão).
+3. Sempre que um clip novo for encontrado, ele é enviado ao Discord com o link e um embed contendo os detalhes.
 4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
 
 ### Utilidades
@@ -39,7 +39,8 @@ Bot do Discord para enviar automaticamente clips recentes da Twitch.
 
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
-   - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
+   - Defina `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
+   - Opcionalmente ajuste `CLIP_CHECK_SECONDS`, `CLIP_LOOKBACK_HOURS`, `CLIP_SHOW_DETAILS`, `CLIP_ATTACH_VIDEO` e `CLIP_API_TIMEOUT`
 
 4. **Execute o bot usando Python 3:**
    ```bash
@@ -71,7 +72,7 @@ Bot do Discord para enviar automaticamente clips recentes da Twitch.
 2. Registre uma nova aplicação
 3. Copie Client ID e Client Secret
 4. Defina esses valores em `TWITCH_CLIENT_ID` e `TWITCH_SECRET`
-5. Esses valores são obrigatórios para que o bot consiga acessar a API da Twitch e localizar o canal informado. Se o comando `/twitch_setup` retornar que o canal não foi encontrado, confirme que o `Client ID` e `Secret` estão corretos.
+5. Demais variáveis de configuração estão documentadas em `.env.example` e no passo de configuração.
 
 
 ## Permissões Necessárias
