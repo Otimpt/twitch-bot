@@ -222,9 +222,14 @@ async def desistir(interaction: discord.Interaction):
     for game_id, game in active_games.items():
         if interaction.user in game.players:
             user_game = game_id
-            break
-
-    if not user_game:
+        name="♟️ Xadrez",
+        value=(
+            "`/xadrez @oponente` - Inicia um jogo de xadrez\n"
+            "`/mover e2e4` - Faz uma jogada\n"
+            "`/tabuleiro` - Mostra o tabuleiro\n"
+            "`/desistir` - Desiste do jogo"
+        ),
+        inline=False,
         await interaction.response.send_message("❌ Você não está em nenhum jogo ativo!", ephemeral=True)
         return
 
