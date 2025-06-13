@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 import discord
 from discord.ext import commands, tasks
-import requests
 import json
 import os
+import aiohttp
 from dotenv import load_dotenv
 from datetime import datetime
 twitch_configs = {}
@@ -12,39 +12,40 @@ last_clips = {}
 
 
 
-@bot.tree.command(name="jogos", description="Lista todos os jogos disponíveis")
-async def jogos(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🎮 Jogos Disponíveis",
-        description="Aqui estão os jogos que você pode jogar:",
-        color=0xff6b6b
+        "client_id": TWITCH_CLIENT_ID,
+        "client_secret": TWITCH_SECRET,
+        "grant_type": "client_credentials",
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=params, timeout=10) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                return data.get("access_token")
+    except aiohttp.ClientError as e:
+        "Client-ID": TWITCH_CLIENT_ID,
+        "Authorization": f"Bearer {token}",
+    url = f"https://api.twitch.tv/helix/users?login={username}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=10) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+    except aiohttp.ClientError as e:
+    if data.get("data"):
+        return data["data"][0]["id"]
+        "Client-ID": TWITCH_CLIENT_ID,
+        "Authorization": f"Bearer {token}",
+    url = (
+        f"https://api.twitch.tv/helix/clips?"
+        f"broadcaster_id={broadcaster_id}&first={limit}"
     )
-    embed.add_field(
-        name="♟️ Xadrez", 
-        value="`/xadrez @oponente` - Inicia um jogo de xadrez\n`/mover e2e4` - Faz uma jogada\n`/tabuleiro` - Mostra o tabuleiro\n`/desistir` - Desiste do jogo", 
-        inline=False
-    )
-    embed.add_field(
-        response = requests.post(url, data=params, timeout=10)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        return None
 
-    return response.json().get('access_token')
-    return data.get("access_token")
-            headers=headers,
-            timeout=10
-        )
-        response.raise_for_status()
-    except requests.RequestException as e:
-        return None
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=10) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                return data.get("data", [])
+    except aiohttp.ClientError as e:
 
-    data = response.json()
-    if data.get('data'):
-        return data['data'][0]['id']
-
-    print("Canal não encontrado na resposta da API.")
-    """Obtém os clips mais recentes de um canal"""
     token = await get_twitch_token()
     if not token:
         url = f"https://api.twitch.tv/helix/clips?broadcaster_id={broadcaster_id}&first={limit}"
