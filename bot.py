@@ -94,28 +94,42 @@ async def twitch_setup(
                             name="⏱️ Duração", value=f"{clip['duration']}s", inline=True
                         )
                         embed.add_field(
-                            name="🎮 Jogo",
-                            value=clip.get("game_name", "N/A"),
+    name="twitch_setup",
+    description="Configura monitoramento de clips da Twitch",
+    embed.add_field(
+        name="✅ Status", value="Monitoramento ativo", inline=False
+    )
+                            name="📺 Canal",
+                            value=config["username"],
                             inline=True,
                         )
                         embed.add_field(
-                            name="👤 Criado por",
-                            value=clip["creator_name"],
+                            name="👀 Views",
+                            value=clip["view_count"],
+                            inline=True,
+                            name="⏱️ Duração",
+                            value=f"{clip['duration']}s",
+                            inline=True,
                             inline=True,
                         )
                         embed.add_field(
-                            name="📅 Data", value=clip["created_at"][:10], inline=True
+                            name="📅 Data",
+                            value=clip["created_at"][:10],
+                            inline=True,
                         )
                         if clip.get("thumbnail_url"):
                             embed.set_image(url=clip["thumbnail_url"])
 
 @bot.tree.command(
-    name="twitch_status", description="Mostra o status do monitoramento da Twitch"
+    name="twitch_status",
+    description="Mostra o status do monitoramento da Twitch",
 )
             color=0xFF0000,
         channel = bot.get_channel(config["discord_channel"])
 
-        embed = discord.Embed(title="📺 Status do Monitoramento Twitch", color=0x9146FF)
+        embed = discord.Embed(
+            title="📺 Status do Monitoramento Twitch", color=0x9146FF
+        )
         embed.add_field(name="📺 Canal", value=config["username"], inline=True)
         embed.add_field(
             name="💬 Canal Discord",
@@ -131,9 +145,13 @@ async def twitch_setup(
         )
 
 
-        title="🏓 Pong!", description=f"Latência: **{latency}ms**", color=0x00FF00
+        title="🏓 Pong!",
+        description=f"Latência: **{latency}ms**",
+        color=0x00FF00,
 
-        color=0x0099FF,
+@bot.tree.command(
+    name="help", description="Mostra todos os comandos disponíveis"
+)
 
         inline=False,
         inline=False,
