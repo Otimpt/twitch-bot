@@ -212,10 +212,11 @@ async def tabuleiro(interaction: discord.Interaction):
         value=game.get_current_player().mention, 
         inline=True
     )
-    embed.add_field(
-        name="📊 Movimentos", 
-        value=f"{len(game.board.move_stack)} jogadas", 
-        inline=True
+    description = (
+        f"**{interaction.user.display_name}** desistiu do jogo!\n\n"
+        f"🏆 **{opponent.display_name}** venceu por desistência!"
+    )
+        description=description,
     )
 
     if game.board.is_check():
