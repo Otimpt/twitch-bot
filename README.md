@@ -1,7 +1,6 @@
 # Bot Discord - Twitch Clips
 
 Bot do Discord para enviar automaticamente clips recentes da Twitch.
-O projeto originalmente incluía comandos de xadrez, mas essas funções foram removidas.
 
 ## Pré-requisitos
 - Python 3.10 ou superior
