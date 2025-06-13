@@ -221,14 +221,16 @@ async def desistir(interaction: discord.Interaction):
     user_game = None
     for game_id, game in active_games.items():
         if interaction.user in game.players:
-            user_game = game_id
-        name="♟️ Xadrez",
-        value=(
-            "`/xadrez @oponente` - Inicia um jogo de xadrez\n"
-            "`/mover e2e4` - Faz uma jogada\n"
-            "`/tabuleiro` - Mostra o tabuleiro\n"
-            "`/desistir` - Desiste do jogo"
-        ),
+    xadrez_text = "\n".join([
+        "`/xadrez @oponente` - Inicia um jogo de xadrez",
+        "`/mover e2e4` - Faz uma jogada",
+        "`/tabuleiro` - Mostra o tabuleiro",
+        "`/desistir` - Desiste do jogo",
+    ])
+        value=xadrez_text,
+    """Obtem token de acesso da Twitch"""
+    data = response.json()
+    return data.get('access_token')
         inline=False,
         await interaction.response.send_message("❌ Você não está em nenhum jogo ativo!", ephemeral=True)
         return
