@@ -23,12 +23,10 @@ TWITCH_SECRET = os.getenv("TWITCH_SECRET")
 
 # Intervalo entre verificações de novos clips (segundos)
 CLIP_CHECK_SECONDS = int(os.getenv("CLIP_CHECK_SECONDS", "30"))
-# Quantas horas no passado considerar ao iniciar o monitoramento
-CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "0.2"))
-# Mostrar visualizações, autor e data dos clips
-CLIP_SHOW_DETAILS = os.getenv("CLIP_SHOW_DETAILS", "true").lower() == "true"
-# Tempo limite de chamadas HTTP
-CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "30"))
+# Quantas horas no passado considerar ao iniciar o monitoramento (VERSÃO ANTIGA - FUNCIONA)
+CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "2.0"))
+# Tempo limite de chamadas HTTP (VERSÃO ANTIGA - FUNCIONA)
+CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "10"))
 # Enviar video mp4 como anexo
 CLIP_ATTACH_VIDEO = os.getenv("CLIP_ATTACH_VIDEO", "false").lower() == "true"
 # Debug mode
@@ -48,7 +46,13 @@ last_check_time: Dict[int, datetime] = {}
 def debug_print(message: str):
     """Print debug messages if debug mode is enabled."""
     if DEBUG_MODE:
-        print(f"[DEBUG] {message}")
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"[DEBUG {timestamp}] {message}")
+
+def log_print(message: str):
+    """Print important log messages always."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"[LOG {timestamp}] {message}")
 
 # ---- Utilidades Twitch ----
 async def get_twitch_token() -> Optional[str]:
@@ -69,7 +73,7 @@ async def get_twitch_token() -> Optional[str]:
                 debug_print(f"Token obtido com sucesso: {token[:10]}..." if token else "Falha ao obter token")
                 return token
     except Exception as e:
-        print(f"Erro ao obter token: {e}")
+        log_print(f"❌ Erro ao obter token: {e}")
         return None
 
 def parse_twitch_username(raw: str) -> str:
@@ -108,7 +112,7 @@ async def get_broadcaster_id(username: str, token: str) -> Optional[str]:
     }
     params = {"login": username}
 
-    debug_print(f"Buscando ID do broadcaster para: {username}")
+    debug_print(f"🔍 Buscando ID do broadcaster para: {username}")
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -116,17 +120,17 @@ async def get_broadcaster_id(username: str, token: str) -> Optional[str]:
                 resp.raise_for_status()
                 data = await resp.json()
 
-                debug_print(f"Resposta da API Twitch: {data}")
+                debug_print(f"📡 Resposta da API Twitch Users: {data}")
 
                 if data.get("data") and len(data["data"]) > 0:
                     broadcaster_id = data["data"][0]["id"]
-                    debug_print(f"ID do broadcaster encontrado: {broadcaster_id}")
+                    log_print(f"✅ ID do broadcaster encontrado: {username} -> {broadcaster_id}")
                     return broadcaster_id
                 else:
-                    debug_print(f"Nenhum usuário encontrado para: {username}")
+                    log_print(f"❌ Nenhum usuário encontrado para: {username}")
                     return None
     except Exception as e:
-        print(f"Erro ao buscar ID do canal '{username}': {e}")
+        log_print(f"❌ Erro ao buscar ID do canal '{username}': {e}")
         return None
 
 def clip_video_url(thumbnail_url: str) -> str:
@@ -148,7 +152,12 @@ async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: dat
         "Authorization": f"Bearer {token}"
     }
 
-    debug_print(f"Buscando clips de {start} até {end} para broadcaster {broadcaster_id}")
+    log_print(f"🔍 Buscando clips:")
+    log_print(f"   📅 De: {start.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+    log_print(f"   📅 Até: {end.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+    log_print(f"   👤 Broadcaster ID: {broadcaster_id}")
+    debug_print(f"📡 URL da API: {url}")
+    debug_print(f"📡 Parâmetros: {params}")
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -156,33 +165,57 @@ async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: dat
                 resp.raise_for_status()
                 data = await resp.json()
                 clips = data.get("data", [])
-                debug_print(f"Encontrados {len(clips)} clips")
+
+                log_print(f"📊 Resposta da API: {len(clips)} clips encontrados")
+                debug_print(f"📡 Resposta completa da API: {data}")
+
+                # Log detalhado de cada clip encontrado (só se debug ativado)
+                if DEBUG_MODE:
+                    for i, clip in enumerate(clips, 1):
+                        created_at = clip.get("created_at", "")
+                        title = clip.get("title", "Sem título")[:50]
+                        creator = clip.get("creator_name", "?")
+                        clip_id = clip.get("id", "?")
+
+                        if created_at:
+                            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                            created_str = created_dt.strftime("%d/%m %H:%M:%S")
+
+                            # Verificar se está no range
+                            in_range = start <= created_dt <= end
+                            range_status = "✅ NO RANGE" if in_range else "❌ FORA DO RANGE"
+
+                            debug_print(f"   🎬 Clip #{i}: {title}")
+                            debug_print(f"      📅 Criado: {created_str} ({range_status})")
+                            debug_print(f"      👤 Por: {creator} | ID: {clip_id}")
+
+                            # Mostrar diferença de tempo
+                            now_utc = datetime.now(timezone.utc)
+                            time_diff = now_utc - created_dt
+                            minutes_ago = int(time_diff.total_seconds() / 60)
+                            debug_print(f"      ⏰ Há {minutes_ago} minutos atrás")
+                        else:
+                            debug_print(f"   🎬 Clip #{i}: {title} (SEM DATA)")
+
                 return clips
     except Exception as e:
-        print(f"Erro ao buscar clips: {e}")
+        log_print(f"❌ Erro ao buscar clips: {e}")
         return []
 
-def create_clip_embed(clip: dict, username: str, include_image: bool = True) -> discord.Embed:
-    """Cria embed do Discord para um clip."""
+def create_clip_embed(clip: dict, username: str) -> discord.Embed:
+    """Cria embed simplificado do Discord para um clip."""
     embed = discord.Embed(
-        title=clip.get("title", "Clip"),
-        url=clip.get("url"),
         color=0x9146FF,
+        description="🎬 Novo clip!"
     )
+
     embed.add_field(name="📺 Canal", value=username, inline=True)
+    embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
 
-    if CLIP_SHOW_DETAILS:
-        embed.add_field(name="👀 Views", value=str(clip.get("view_count", 0)), inline=True)
-        embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
-
-        created = clip.get("created_at", "")
-        if created:
-            dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
-            embed.add_field(name="📅 Data", value=dt, inline=True)
-
-    # Só adiciona a imagem se não for anexar o vídeo
-    if include_image and clip.get("thumbnail_url") and not CLIP_ATTACH_VIDEO:
-        embed.set_image(url=clip["thumbnail_url"])
+    created = clip.get("created_at", "")
+    if created:
+        dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
+        embed.add_field(name="📅 Data", value=dt, inline=True)
 
     return embed
 
@@ -192,7 +225,7 @@ async def download_clip_video(clip: dict) -> Optional[discord.File]:
         return None
 
     video_url = clip_video_url(clip["thumbnail_url"])
-    debug_print(f"Baixando vídeo do clip: {video_url}")
+    debug_print(f"📥 Baixando vídeo do clip: {video_url}")
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -202,30 +235,36 @@ async def download_clip_video(clip: dict) -> Optional[discord.File]:
 
                 # Verifica se o arquivo não está vazio
                 if len(data) == 0:
-                    print(f"Vídeo do clip está vazio: {video_url}")
+                    log_print(f"❌ Vídeo do clip está vazio: {video_url}")
                     return None
 
-                debug_print(f"Vídeo baixado com sucesso: {len(data)} bytes")
+                debug_print(f"✅ Vídeo baixado com sucesso: {len(data)} bytes")
                 return discord.File(io.BytesIO(data), filename=f"clip_{clip['id']}.mp4")
 
     except Exception as e:
-        print(f"Erro ao baixar vídeo do clip: {e}")
+        log_print(f"❌ Erro ao baixar vídeo do clip: {e}")
         return None
 
 # ---- Eventos do Bot ----
 @bot.event
 async def on_ready():
     """Evento executado quando o bot fica online."""
-    print(f"{bot.user} está online!")
+    log_print(f"🤖 {bot.user} está online!")
+    log_print(f"🐛 Debug mode: {'✅ ATIVADO' if DEBUG_MODE else '❌ DESATIVADO'}")
+    log_print(f"🎬 Anexo de vídeo: {'✅ ATIVADO' if CLIP_ATTACH_VIDEO else '❌ DESATIVADO'}")
+    log_print(f"⏰ Verificação a cada: {CLIP_CHECK_SECONDS}s")
+    log_print(f"📅 Lookback: {CLIP_LOOKBACK_HOURS}h (configuração da versão antiga)")
+    log_print(f"⏱️ Timeout API: {CLIP_API_TIMEOUT}s (configuração da versão antiga)")
+
     try:
         synced = await bot.tree.sync()
-        print(f"Sincronizados {len(synced)} comando(s)")
+        log_print(f"🔄 Sincronizados {len(synced)} comando(s)")
     except Exception as e:
-        print(f"Erro ao sincronizar comandos: {e}")
+        log_print(f"❌ Erro ao sincronizar comandos: {e}")
 
     if not check_twitch_clips.is_running():
         check_twitch_clips.start()
-        print("Loop de verificação de clips iniciado")
+        log_print("🔄 Loop de verificação de clips iniciado")
 
 # ---- Comandos do Bot ----
 @bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips")
@@ -239,13 +278,13 @@ async def twitch_setup(
     except discord.NotFound:
         return
     except discord.HTTPException as e:
-        print(f"Erro ao responder interação: {e}")
+        log_print(f"❌ Erro ao responder interação: {e}")
         return
 
     username = parse_twitch_username(canal_twitch)
     server_id = interaction.guild.id
 
-    print(f"Configurando monitoramento para '{username}' no servidor {server_id}")
+    log_print(f"⚙️ Configurando monitoramento para '{username}' no servidor {server_id}")
 
     # Obter token e ID do broadcaster
     token = await get_twitch_token()
@@ -288,7 +327,7 @@ async def twitch_setup(
     embed.add_field(name="🎬 Vídeo anexo", value="✅ Ativado" if CLIP_ATTACH_VIDEO else "❌ Desativado", inline=True)
 
     await interaction.followup.send(embed=embed)
-    print(f"Configuração salva para {username} (ID: {broadcaster_id})")
+    log_print(f"✅ Configuração salva para {username} (ID: {broadcaster_id})")
 
 @bot.tree.command(name="twitch_status", description="Mostra status do monitoramento")
 async def twitch_status(interaction: discord.Interaction):
@@ -317,6 +356,11 @@ async def twitch_status(interaction: discord.Interaction):
     if last_check:
         last_check_str = last_check.strftime("%d/%m/%Y %H:%M:%S UTC")
         embed.add_field(name="🕐 Última verificação", value=last_check_str, inline=True)
+
+    # Mostrar horário atual do sistema
+    now_utc = datetime.now(timezone.utc)
+    embed.add_field(name="🕐 Horário atual (UTC)", value=now_utc.strftime("%d/%m/%Y %H:%M:%S"), inline=True)
+    embed.add_field(name="📅 Lookback atual", value=f"{CLIP_LOOKBACK_HOURS}h", inline=True)
 
     await interaction.response.send_message(embed=embed)
 
@@ -350,6 +394,7 @@ async def twitch_test(interaction: discord.Interaction):
     now = datetime.now(timezone.utc)
     start = now - timedelta(hours=24)  # Últimas 24 horas para teste
 
+    log_print(f"🧪 Teste manual iniciado para {config['username']}")
     clips = await fetch_clips(config["broadcaster_id"], token, start, now)
 
     embed = discord.Embed(
@@ -367,7 +412,7 @@ async def twitch_test(interaction: discord.Interaction):
                 dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m %H:%M")
                 embed.add_field(
                     name=f"#{i} {clip.get('title', 'Sem título')[:30]}...",
-                    value=f"📅 {dt} | 👀 {clip.get('view_count', 0)}",
+                    value=f"📅 {dt} | 👤 {clip.get('creator_name', '?')}",
                     inline=False
                 )
 
@@ -405,96 +450,117 @@ async def help_command(interaction: discord.Interaction):
 async def check_twitch_clips():
     """Loop principal que verifica novos clips."""
     if not twitch_configs:
+        debug_print("⏭️ Nenhuma configuração encontrada, pulando verificação")
         return
 
     token = await get_twitch_token()
     if not token:
-        print("Erro: Não foi possível obter token da Twitch")
+        log_print("❌ Erro: Não foi possível obter token da Twitch")
         return
 
     now = datetime.now(timezone.utc)
-    debug_print(f"Verificando clips às {now}")
+    log_print(f"🔄 === VERIFICAÇÃO DE CLIPS ===")
+    log_print(f"🕐 Horário atual (UTC): {now.strftime('%d/%m/%Y %H:%M:%S')}")
 
     for server_id, cfg in list(twitch_configs.items()):
         try:
             start = last_check_time.get(server_id, now - timedelta(hours=CLIP_LOOKBACK_HOURS))
-            debug_print(f"Servidor {server_id}: Buscando clips de {start} até {now}")
+
+            log_print(f"🔍 Servidor {server_id} - Canal: {cfg['username']}")
+            log_print(f"   📅 Buscando de: {start.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+            log_print(f"   📅 Até: {now.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+            log_print(f"   ⏰ Diferença: {(now - start).total_seconds() / 60:.1f} minutos")
 
             clips = await fetch_clips(cfg["broadcaster_id"], token, start, now)
 
             if not clips:
-                debug_print(f"Nenhum clip encontrado para {cfg['username']}")
-                # Atualizar tempo mesmo sem clips
+                log_print(f"   📭 Nenhum clip encontrado para {cfg['username']}")
+                # Atualizar tempo mesmo sem clips (LÓGICA DA VERSÃO ANTIGA)
                 if server_id not in last_check_time:
                     last_check_time[server_id] = now
                 continue
 
             # Ordenar clips por data de criação (mais antigos primeiro)
             clips.sort(key=lambda c: c.get("created_at", ""))
-            debug_print(f"Processando {len(clips)} clips para {cfg['username']}")
+            log_print(f"   📊 Processando {len(clips)} clips para {cfg['username']}")
 
             new_clips_count = 0
             for clip in clips:
                 clip_id = clip["id"]
                 created = datetime.fromisoformat(clip["created_at"].replace("Z", "+00:00"))
+                title = clip.get("title", "Sem título")
 
-                debug_print(f"Clip {clip_id}: criado em {created} (start={start}, now={now})")
+                debug_print(f"   🎬 Analisando clip: {title[:50]}")
+                debug_print(f"      📅 Criado em: {created.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+                debug_print(f"      🆔 ID: {clip_id}")
 
-                # Pular clips já enviados
+                # Verificar se já foi enviado
                 if clip_id in posted_clips.get(server_id, set()):
-                    debug_print(f"Clip {clip_id} já foi enviado")
+                    debug_print(f"      ⏭️ Clip já foi enviado anteriormente")
                     continue
 
-                # Pular clips muito antigos
+                # Verificar se está no range de tempo (LÓGICA DA VERSÃO ANTIGA)
                 if created < start:
-                    debug_print(f"Clip {clip_id} é muito antigo ({created} < {start})")
+                    debug_print(f"      ⏭️ Clip muito antigo (antes de {start.strftime('%H:%M:%S')})")
                     continue
+
+                # Verificar se não é futuro
+                if created > now:
+                    debug_print(f"      ⚠️ Clip do futuro? Criado: {created}, Agora: {now}")
 
                 channel = bot.get_channel(cfg["discord_channel"])
                 if not channel:
-                    print(f"Canal Discord não encontrado: {cfg['discord_channel']}")
+                    log_print(f"      ❌ Canal Discord não encontrado: {cfg['discord_channel']}")
                     continue
 
-                # Criar embed
-                embed = create_clip_embed(clip, cfg["username"], include_image=not CLIP_ATTACH_VIDEO)
+                log_print(f"      ✅ NOVO CLIP DETECTADO! Enviando...")
+
+                # Criar embed simplificado
+                embed = create_clip_embed(clip, cfg["username"])
                 files = []
 
                 # Baixar e anexar vídeo se configurado
                 if CLIP_ATTACH_VIDEO:
+                    debug_print(f"      📥 Baixando vídeo...")
                     video_file = await download_clip_video(clip)
                     if video_file:
                         files.append(video_file)
-                        print(f"🎬 Vídeo do clip baixado: {clip.get('title', 'Sem título')}")
+                        debug_print(f"      ✅ Vídeo baixado com sucesso")
                     else:
-                        print(f"⚠️ Não foi possível baixar vídeo do clip: {clip.get('title', 'Sem título')}")
+                        debug_print(f"      ❌ Falha ao baixar vídeo")
 
                 try:
-                    # Enviar mensagem com embed e arquivos (se houver)
-                    message_content = f"🎬 **Novo clip de {cfg['username']}!**\n{clip.get('url')}"
+                    # Mensagem principal com título e link
+                    clip_title = clip.get("title", "Clip sem título")
+                    message_content = f"**Novo clip de {cfg['username']}:** {clip_title}\n{clip.get('url')}"
+
                     await channel.send(content=message_content, embed=embed, files=files)
 
                     posted_clips.setdefault(server_id, set()).add(clip_id)
                     new_clips_count += 1
 
                     if CLIP_ATTACH_VIDEO and files:
-                        print(f"✅ Novo clip enviado com vídeo: {clip.get('title', 'Sem título')} de {cfg['username']}")
+                        log_print(f"      🎉 Clip enviado COM VÍDEO: {clip_title}")
                     else:
-                        print(f"✅ Novo clip enviado: {clip.get('title', 'Sem título')} de {cfg['username']}")
+                        log_print(f"      🎉 Clip enviado SEM VÍDEO: {clip_title}")
 
-                    # Atualizar último tempo de verificação
+                    # Atualizar último tempo de verificação (LÓGICA DA VERSÃO ANTIGA - ROBUSTA)
                     if created > last_check_time.get(server_id, start):
                         last_check_time[server_id] = created
+                        debug_print(f"      🕐 Último check atualizado para: {created.strftime('%H:%M:%S')}")
 
                 except Exception as e:
-                    print(f"Erro ao enviar clip: {e}")
+                    log_print(f"      ❌ Erro ao enviar clip: {e}")
 
             if new_clips_count > 0:
-                print(f"📺 {new_clips_count} novos clips enviados para {cfg['username']}")
+                log_print(f"   🎉 {new_clips_count} novos clips enviados para {cfg['username']}")
             else:
-                debug_print(f"Nenhum clip novo para {cfg['username']}")
+                debug_print(f"   📭 Nenhum clip novo para {cfg['username']}")
 
         except Exception as e:
-            print(f"Erro ao verificar clips para servidor {server_id}: {e}")
+            log_print(f"❌ Erro ao verificar clips para servidor {server_id}: {e}")
+
+    log_print(f"🔄 === FIM DA VERIFICAÇÃO ===\n")
 
 @check_twitch_clips.before_loop
 async def before_check_twitch_clips():
@@ -513,17 +579,17 @@ if __name__ == "__main__":
         missing_vars.append("TWITCH_SECRET")
 
     if missing_vars:
-        print(f"❌ Variáveis de ambiente faltando: {', '.join(missing_vars)}")
+        log_print(f"❌ Variáveis de ambiente faltando: {', '.join(missing_vars)}")
         if "DISCORD_TOKEN" in missing_vars:
-            print("Bot não pode iniciar sem DISCORD_TOKEN.")
+            log_print("Bot não pode iniciar sem DISCORD_TOKEN.")
             exit(1)
         else:
-            print("⚠️ Twitch desabilitado. Defina TWITCH_CLIENT_ID e TWITCH_SECRET para habilitar.")
+            log_print("⚠️ Twitch desabilitado. Defina TWITCH_CLIENT_ID e TWITCH_SECRET para habilitar.")
 
     if DISCORD_TOKEN:
-        print("🚀 Iniciando bot...")
+        log_print("🚀 Iniciando bot...")
         if DEBUG_MODE:
-            print("🐛 Modo debug ativado")
+            log_print("🐛 Modo debug ativado - logs detalhados habilitados")
         if CLIP_ATTACH_VIDEO:
-            print("🎬 Anexo de vídeo ativado")
+            log_print("🎬 Anexo de vídeo ativado")
         bot.run(DISCORD_TOKEN)
