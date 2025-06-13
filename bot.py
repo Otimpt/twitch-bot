@@ -7,12 +7,15 @@ import os
 import aiohttp
 from dotenv import load_dotenv
 from datetime import datetime
-twitch_configs = {}
+bot = commands.Bot(command_prefix="!", intents=intents)
 last_clips = {}
 
 
+    print(f"{bot.user} está online!")
+        print(f"Sincronizados {len(synced)} comando(s)")
+        print(f"Erro ao sincronizar comandos: {e}")
 
-        "client_id": TWITCH_CLIENT_ID,
+
         "client_secret": TWITCH_SECRET,
         "grant_type": "client_credentials",
         async with aiohttp.ClientSession() as session:
@@ -21,6 +24,7 @@ last_clips = {}
                 data = await resp.json()
                 return data.get("access_token")
     except aiohttp.ClientError as e:
+
         "Client-ID": TWITCH_CLIENT_ID,
         "Authorization": f"Bearer {token}",
     url = f"https://api.twitch.tv/helix/users?login={username}"
@@ -32,6 +36,7 @@ last_clips = {}
     except aiohttp.ClientError as e:
     if data.get("data"):
         return data["data"][0]["id"]
+
         "Client-ID": TWITCH_CLIENT_ID,
         "Authorization": f"Bearer {token}",
     url = (
@@ -46,53 +51,93 @@ last_clips = {}
                 return data.get("data", [])
     except aiohttp.ClientError as e:
 
-    token = await get_twitch_token()
-    if not token:
-        url = f"https://api.twitch.tv/helix/clips?broadcaster_id={broadcaster_id}&first={limit}"
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json()['data']
-    # Inicializa o controle de clips
-    embed.add_field(name="🔄 Frequência", value="Verifica novos clips a cada 5 minutos", inline=False)
-@tasks.loop(minutes=5)
+
+@bot.tree.command(
+    name="twitch_setup", description="Configura monitoramento de clips da Twitch"
+)
+async def twitch_setup(
+    interaction: discord.Interaction,
+    canal_twitch: str,
+    canal_discord: discord.TextChannel,
+):
+    username = canal_twitch.replace("@", "").lower()
+            color=0xFF0000,
+        "username": username,
+        "broadcaster_id": broadcaster_id,
+        "discord_channel": canal_discord.id,
+        color=0x9146FF,
+    embed.add_field(
+        name="🔄 Frequência",
+        value="Verifica novos clips a cada 5 minutos",
+        inline=False,
+    )
+
     for server_id, config in twitch_configs.items():
-            clips = await get_latest_clips(config['broadcaster_id'], 3)
+            clips = await get_latest_clips(config["broadcaster_id"], 3)
 
 
-                if clip_id not in last_clips[server_id]:
+                clip_id = clip["id"]
                     # Novo clip encontrado!
-                        embed = discord.Embed(
+                    channel = bot.get_channel(config["discord_channel"])
                             title="🎬 Novo Clip da Twitch!",
                             description=f"**{clip['title']}**",
-                            url=clip['url'],
-                            color=0x9146ff
+                            url=clip["url"],
+                            color=0x9146FF,
                         )
-                        embed.add_field(name="📺 Canal", value=config['username'], inline=True)
-                        embed.add_field(name="👀 Views", value=clip['view_count'], inline=True)
-                        embed.add_field(name="⏱️ Duração", value=f"{clip['duration']}s", inline=True)
-                        embed.add_field(name="🎮 Jogo", value=clip.get('game_name', 'N/A'), inline=True)
-                        embed.add_field(name="👤 Criado por", value=clip['creator_name'], inline=True)
-                        embed.add_field(name="📅 Data", value=clip['created_at'][:10], inline=True)
-        url = (
-            f"https://api.twitch.tv/helix/clips?"
-            f"broadcaster_id={broadcaster_id}&first={limit}"
+                        embed.add_field(
+                            name="📺 Canal", value=config["username"], inline=True
+                        )
+                        embed.add_field(
+                            name="👀 Views", value=clip["view_count"], inline=True
+                        )
+                        embed.add_field(
+                            name="⏱️ Duração", value=f"{clip['duration']}s", inline=True
+                        )
+                        embed.add_field(
+                            name="🎮 Jogo",
+                            value=clip.get("game_name", "N/A"),
+                            inline=True,
+                        )
+                        embed.add_field(
+                            name="👤 Criado por",
+                            value=clip["creator_name"],
+                            inline=True,
+                        )
+                        embed.add_field(
+                            name="📅 Data", value=clip["created_at"][:10], inline=True
+                        )
+                        if clip.get("thumbnail_url"):
+                            embed.set_image(url=clip["thumbnail_url"])
+
+@bot.tree.command(
+    name="twitch_status", description="Mostra o status do monitoramento da Twitch"
+)
+            color=0xFF0000,
+        channel = bot.get_channel(config["discord_channel"])
+
+        embed = discord.Embed(title="📺 Status do Monitoramento Twitch", color=0x9146FF)
+        embed.add_field(name="📺 Canal", value=config["username"], inline=True)
+        embed.add_field(
+            name="💬 Canal Discord",
+            value=channel.mention if channel else "Canal não encontrado",
+            inline=True,
+        embed.add_field(
+            name="🔄 Última verificação", value="A cada 5 minutos", inline=True
         )
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        return []
+        embed.add_field(
+            name="📊 Clips monitorados",
+            value=len(last_clips.get(server_id, [])),
+            inline=True,
+        )
 
-    return response.json().get("data", [])
-        print("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente!")
-    else:
-    )
-    embed.add_field(name="✅ Status", value="Monitoramento ativo", inline=False)
-    embed.add_field(name="🔄 Frequência", value=f"Verifica novos clips a cada {CLIP_CHECK_SECONDS}s", inline=False)
 
-    await interaction.followup.send(embed=embed)
+        title="🏓 Pong!", description=f"Latência: **{latency}ms**", color=0x00FF00
 
-@tasks.loop(seconds=CLIP_CHECK_SECONDS, reconnect=True)
-async def check_twitch_clips():
+        color=0x0099FF,
+
+        inline=False,
+        inline=False,
+
     """Verifica novos clips da Twitch periodicamente"""
     # Copia as configurações para evitar erros caso sejam alteradas
     # enquanto a iteração estiver em andamento
