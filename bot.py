@@ -26,6 +26,8 @@ TWITCH_SECRET = os.getenv("TWITCH_SECRET")
 CLIP_CHECK_SECONDS = int(os.getenv("CLIP_CHECK_SECONDS", "30"))
 # Quantas horas no passado considerar ao iniciar o monitoramento
 CLIP_LOOKBACK_HOURS = float(os.getenv("CLIP_LOOKBACK_HOURS", "2.0"))
+# Mostrar visualizações, autor e data dos clips
+CLIP_SHOW_DETAILS = os.getenv("CLIP_SHOW_DETAILS", "true").lower() == "true"
 # Tempo limite de chamadas HTTP
 CLIP_API_TIMEOUT = int(os.getenv("CLIP_API_TIMEOUT", "10"))
 # Enviar video mp4 como anexo
@@ -36,18 +38,28 @@ DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 # ---- Cache ----
 CACHE_FILE = "posted_clips.json"
 
-def load_cache() -> Dict[int, Set[str]]:
+def load_cache() -> Dict[str, Set[str]]:
     """Carrega o cache do arquivo JSON."""
     try:
         with open(CACHE_FILE, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            # Converter chaves de volta para int e valores para set
+            return {int(k): set(v) for k, v in data.items()}
     except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"Erro ao carregar cache: {e}")
         return {}
 
 def save_cache(cache: Dict[int, Set[str]]):
     """Salva o cache no arquivo JSON."""
-    with open(CACHE_FILE, "w") as f:
-        json.dump(cache, f)
+    try:
+        # Converter sets para listas para JSON
+        data = {str(k): list(v) for k, v in cache.items()}
+        with open(CACHE_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Erro ao salvar cache: {e}")
 
 # Configuração do bot
 intents = discord.Intents.default()
@@ -57,7 +69,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Por servidor: configurações, ids de clips enviados e horário da última verificação
 TwitchConfig = Dict[str, str]
 twitch_configs: Dict[int, TwitchConfig] = {}
-posted_clips: Dict[int, Set[str]] = {}  # Inicializado aqui, mas será carregado do arquivo
+posted_clips: Dict[int, Set[str]] = {}
 last_check_time: Dict[int, datetime] = {}
 
 def debug_print(message: str):
@@ -150,35 +162,10 @@ async def get_broadcaster_id(username: str, token: str) -> Optional[str]:
         log_print(f"❌ Erro ao buscar ID do canal '{username}': {e}")
         return None
 
-def get_clip_video_url(clip_data: dict) -> Optional[str]:
-    """
-    Extrai a URL do vídeo do clip usando múltiplas estratégias.
-    A API da Twitch às vezes retorna URLs diferentes.
-    """
-    # Estratégia 1: Usar o campo 'video_url' se disponível
-    if clip_data.get("video_url"):
-        debug_print(f"📹 URL do vídeo encontrada no campo video_url: {clip_data['video_url']}")
-        return clip_data["video_url"]
-
-    # Estratégia 2: Converter thumbnail_url para video_url
-    thumbnail_url = clip_data.get("thumbnail_url")
-    if thumbnail_url:
-        # Método original
-        if "-preview-" in thumbnail_url:
-            base = thumbnail_url.split("-preview-", 1)[0]
-            video_url = base + ".mp4"
-            debug_print(f"📹 URL do vídeo gerada (método 1): {video_url}")
-            return video_url
-
-        # Método alternativo para URLs diferentes
-        if "preview-" in thumbnail_url:
-            base = thumbnail_url.split("preview-", 1)[0]
-            video_url = base.rstrip("-") + ".mp4"
-            debug_print(f"📹 URL do vídeo gerada (método 2): {video_url}")
-            return video_url
-
-    debug_print(f"❌ Não foi possível gerar URL do vídeo para o clip")
-    return None
+def clip_video_url(thumbnail_url: str) -> str:
+    """Converte URL da thumbnail para URL do vídeo."""
+    base = thumbnail_url.split("-preview-", 1)[0]
+    return base + ".mp4"
 
 async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: datetime) -> List[dict]:
     """Busca clips de um broadcaster em um período específico."""
@@ -236,12 +223,6 @@ async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: dat
                             time_diff = now_utc - created_dt
                             minutes_ago = int(time_diff.total_seconds() / 60)
                             debug_print(f"      ⏰ Há {minutes_ago} minutos atrás")
-
-                            # Mostrar URLs disponíveis
-                            debug_print(f"      🔗 URL do clip: {clip.get('url', 'N/A')}")
-                            debug_print(f"      🖼️ Thumbnail: {clip.get('thumbnail_url', 'N/A')}")
-                            if clip.get('video_url'):
-                                debug_print(f"      📹 Video URL: {clip.get('video_url')}")
                         else:
                             debug_print(f"   🎬 Clip #{i}: {title} (SEM DATA)")
 
@@ -251,81 +232,27 @@ async def fetch_clips(broadcaster_id: str, token: str, start: datetime, end: dat
         return []
 
 def create_clip_embed(clip: dict, username: str) -> discord.Embed:
-    """Cria embed simplificado do Discord para um clip."""
+    """Cria embed do Discord para um clip."""
     embed = discord.Embed(
+        title=clip.get("title", "Clip"),
+        url=clip.get("url"),
         color=0x9146FF,
-        description="🎬 Novo clip!"
     )
-
     embed.add_field(name="📺 Canal", value=username, inline=True)
-    embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
+
+    if CLIP_SHOW_DETAILS:
+        embed.add_field(name="👀 Views", value=str(clip.get("view_count", 0)), inline=True)
+        embed.add_field(name="👤 Criado por", value=clip.get("creator_name", "?"), inline=True)
 
     created = clip.get("created_at", "")
     if created:
         dt = datetime.fromisoformat(created.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
         embed.add_field(name="📅 Data", value=dt, inline=True)
 
+    if clip.get("thumbnail_url"):
+        embed.set_image(url=clip["thumbnail_url"])
+
     return embed
-
-async def download_clip_video(clip: dict) -> Optional[discord.File]:
-    """Baixa o vídeo do clip e retorna como arquivo do Discord."""
-    video_url = get_clip_video_url(clip)
-
-    if not video_url:
-        log_print(f"❌ Não foi possível obter URL do vídeo para o clip {clip.get('id', '?')}")
-        return None
-
-    debug_print(f"📥 Tentando baixar vídeo: {video_url}")
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(video_url, timeout=CLIP_API_TIMEOUT * 3) as resp:  # Timeout maior para download
-                if resp.status == 404:
-                    log_print(f"❌ Vídeo não encontrado (404): {video_url}")
-
-                    # Tentar URLs alternativas se a primeira falhar
-                    thumbnail_url = clip.get("thumbnail_url", "")
-                    if thumbnail_url and "-preview-" in thumbnail_url:
-                        # Tentar diferentes formatos de URL
-                        alternative_urls = []
-
-                        # Formato 1: substituir preview por AT_
-                        alt_url_1 = thumbnail_url.replace("-preview-", "-AT_")
-                        alternative_urls.append(alt_url_1)
-
-                        # Formato 2: remover preview e adicionar .mp4
-                        base = thumbnail_url.split("-preview-")[0]
-                        alt_url_2 = base + ".mp4"
-                        alternative_urls.append(alt_url_2)
-
-                        for alt_url in alternative_urls:
-                            debug_print(f"📥 Tentando URL alternativa: {alt_url}")
-                            try:
-                                async with session.get(alt_url, timeout=CLIP_API_TIMEOUT * 2) as alt_resp:
-                                    if alt_resp.status == 200:
-                                        data = await alt_resp.read()
-                                        if len(data) > 0:
-                                            debug_print(f"✅ Vídeo baixado com URL alternativa: {len(data)} bytes")
-                                            return discord.File(io.BytesIO(data), filename=f"clip_{clip['id']}.mp4")
-                            except Exception as alt_e:
-                                debug_print(f"❌ Falha na URL alternativa {alt_url}: {alt_e}")
-
-                    return None
-
-                resp.raise_for_status()
-                data = await resp.read()
-
-                # Verifica se o arquivo não está vazio
-                if len(data) == 0:
-                    log_print(f"❌ Vídeo do clip está vazio: {video_url}")
-                    return None
-
-                debug_print(f"✅ Vídeo baixado com sucesso: {len(data)} bytes")
-                return discord.File(io.BytesIO(data), filename=f"clip_{clip['id']}.mp4")
-
-    except Exception as e:
-        log_print(f"❌ Erro ao baixar vídeo do clip: {e}")
-        return None
 
 # ---- Eventos do Bot ----
 @bot.event
@@ -342,6 +269,16 @@ async def on_ready():
     global posted_clips
     posted_clips = load_cache()
     log_print(f"💾 Cache carregado com {sum(len(clips) for clips in posted_clips.values())} clips")
+
+    try:
+        synced = await bot.tree.sync()
+        log_print(f"🔄 Sincronizados {len(synced)} comando(s)")
+    except Exception as e:
+        log_print(f"❌ Erro ao sincronizar comandos: {e}")
+
+    if not check_twitch_clips.is_running():
+        check_twitch_clips.start()
+        log_print("🔄 Loop de verificação de clips iniciado")
 
 # ---- Comandos do Bot ----
 @bot.tree.command(name="twitch_setup", description="Configura monitoramento de clips")
@@ -566,7 +503,11 @@ async def check_twitch_clips():
 
                 debug_print(f"   🎬 Analisando clip: {title[:50]}")
                 debug_print(f"      📅 Criado em: {created.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+                debug_print(f"      📅 Início do range: {start.strftime('%d/%m/%Y %H:%M:%S UTC')}")
+                debug_print(f"      📅 Agora: {now.strftime('%d/%m/%Y %H:%M:%S UTC')}")
                 debug_print(f"      🆔 ID: {clip_id}")
+                debug_print(f"      ⏱️ Diferença para agora: {(now - created).total_seconds():.1f} segundos")
+                debug_print(f"      ⏱️ Diferença para início: {(created - start).total_seconds():.1f} segundos")
 
                 # Verificar se já foi enviado
                 if clip_id in posted_clips.get(server_id, set()):
@@ -589,26 +530,29 @@ async def check_twitch_clips():
 
                 log_print(f"      ✅ NOVO CLIP DETECTADO! Enviando...")
 
-                # Criar embed simplificado
+                # Criar embed e enviar
                 embed = create_clip_embed(clip, cfg["username"])
                 files = []
 
-                # Baixar e anexar vídeo se configurado
-                if CLIP_ATTACH_VIDEO:
+                # Anexar vídeo se configurado
+                if CLIP_ATTACH_VIDEO and clip.get("thumbnail_url"):
                     debug_print(f"      📥 Baixando vídeo...")
-                    video_file = await download_clip_video(clip)
-                    if video_file:
-                        files.append(video_file)
-                        debug_print(f"      ✅ Vídeo baixado com sucesso")
-                    else:
-                        debug_print(f"      ❌ Falha ao baixar vídeo")
+                    video_url = clip_video_url(clip["thumbnail_url"])
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(video_url, timeout=CLIP_API_TIMEOUT * 2) as resp:
+                                resp.raise_for_status()
+                                data = await resp.read()
+                                if len(data) > 0:
+                                    files.append(discord.File(io.BytesIO(data), filename="clip.mp4"))
+                                    debug_print(f"      ✅ Vídeo baixado com sucesso: {len(data)} bytes")
+                                else:
+                                    debug_print(f"      ❌ Vídeo vazio")
+                    except Exception as e:
+                        debug_print(f"      ❌ Erro ao baixar vídeo: {e}")
 
                 try:
-                    # Mensagem principal com título e link
-                    clip_title = clip.get("title", "Clip sem título")
-                    message_content = f"**Novo clip de {cfg['username']}:** {clip_title}\n{clip.get('url')}"
-
-                    await channel.send(content=message_content, embed=embed, files=files)
+                    await channel.send(content=clip.get("url"), embed=embed, files=files)
 
                     # CORREÇÃO: Só adicionar ao cache APÓS envio bem-sucedido
                     posted_clips.setdefault(server_id, set()).add(clip_id)
@@ -618,9 +562,9 @@ async def check_twitch_clips():
                     save_cache(posted_clips)
 
                     if CLIP_ATTACH_VIDEO and files:
-                        log_print(f"      🎉 Clip enviado COM VÍDEO: {clip_title}")
+                        log_print(f"      🎉 Clip enviado COM VÍDEO: {title}")
                     else:
-                        log_print(f"      🎉 Clip enviado SEM VÍDEO: {clip_title}")
+                        log_print(f"      🎉 Clip enviado SEM VÍDEO: {title}")
 
                     # Atualizar último tempo de verificação
                     if created > last_check_time.get(server_id, start):
@@ -645,11 +589,6 @@ async def check_twitch_clips():
 async def before_check_twitch_clips():
     """Aguarda o bot estar pronto antes de iniciar o loop."""
     await bot.wait_until_ready()
-
-    # Carregar o cache
-    global posted_clips
-    posted_clips = load_cache()
-    log_print(f"💾 Cache carregado com {sum(len(clips) for clips in posted_clips.values())} clips")
 
 # ---- Execução ----
 if __name__ == "__main__":
