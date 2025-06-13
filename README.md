@@ -32,18 +32,18 @@ Bot do Discord para enviar automaticamente clips recentes da Twitch.
 ## Configuração
 
 1. **Clone o repositório**
-2. **Instale as dependências:**
+2. **Instale as dependências com Python 3:**
    ```bash
-   pip install -r requirements.txt
+   python3 -m pip install -r requirements.txt
    ```
 
 3. **Configure as variáveis de ambiente:**
    - Copie `.env.example` para `.env`
    - Preencha `DISCORD_TOKEN`, `TWITCH_CLIENT_ID` e `TWITCH_SECRET` com suas credenciais
 
-4. **Execute o bot:**
+4. **Execute o bot usando Python 3:**
    ```bash
-   python bot.py
+   python3 bot.py
    ```
 
 ## Deploy
