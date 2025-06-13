@@ -11,7 +11,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 last_clips = {}
 
 
-    """Announces when the bot is online and syncs commands."""
+   # Announces when the bot is online and syncs commands.
     except Exception as e:
         print(f"Erro ao sincronizar comandos: {e}")
     else:
