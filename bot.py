@@ -63,6 +63,21 @@ async def get_twitch_token() -> Optional[str]:
         print(f"Erro ao obter token: {e}")
         return None
 
+def parse_twitch_username(raw: str) -> str:
+    """Extrai o nome de usuário de diferentes formatos de entrada."""
+    username = raw.strip().replace("@", "").lower()
+    if "//" in username:
+        username = username.split("//", 1)[1]
+    if username.startswith("www."):
+        username = username[4:]
+    if username.startswith("twitch.tv/"):
+        username = username[len("twitch.tv/"):]
+    if "/" in username:
+        username = username.split("/", 1)[0]
+    if "?" in username:
+        username = username.split("?", 1)[0]
+    return username
+
 async def get_broadcaster_id(username: str, token: str) -> Optional[str]:
     """Busca o ID do broadcaster pelo nome de usuário."""
     url = "https://api.twitch.tv/helix/users"
@@ -166,7 +181,7 @@ async def twitch_setup(
         print(f"Erro ao responder intera\u00e7\u00e3o: {e}")
         return
 
-    username = canal_twitch.replace("@", "").lower()
+    username = parse_twitch_username(canal_twitch)
     server_id = interaction.guild.id
 
     # Obter token e ID do broadcaster
