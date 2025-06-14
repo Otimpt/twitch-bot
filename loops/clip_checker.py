@@ -71,7 +71,8 @@ async def check_clips_loop():
 async def process_clips(clips, server_id, broadcaster_id, streamer_config, 
                        filter_config, theme_config, template_config, start_time):
     """Processa lista de clips e envia os novos"""
-    from bot import bot  # Import local para evitar circular import
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
     
     new_clips = 0
     
@@ -165,8 +166,10 @@ async def download_clip_video(thumbnail_url):
 @check_clips_loop.before_loop
 async def before_check_clips():
     """Aguarda o bot estar pronto"""
-    from bot import bot  # Import local para evitar circular import
-    await bot.wait_until_ready()
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
+    if bot:
+        await bot.wait_until_ready()
     log("🔄 Loop de verificação de clips iniciado")
 
 @check_clips_loop.error

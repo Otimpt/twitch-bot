@@ -8,6 +8,18 @@ from config.settings import DEBUG_MODE
 from config.templates import PRESET_TEMPLATES, TEMPLATE_COLORS
 from models.dataclasses import StreamerConfig, ThemeConfig, TemplateConfig, ServerStats
 
+def get_running_bot():
+    """Retorna instância do bot atualmente em execução"""
+    import sys
+    main_mod = sys.modules.get("__main__")
+    if main_mod and hasattr(main_mod, "bot"):
+        return main_mod.bot
+    try:
+        from bot import bot as running_bot
+        return running_bot
+    except Exception:
+        return None
+
 def log(message: str, level: str = "INFO"):
     """Sistema de log simples"""
     timestamp = datetime.now().strftime("%H:%M:%S")

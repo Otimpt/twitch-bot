@@ -35,8 +35,9 @@ async def check_live_status_loop():
 
 async def check_streamer_live_status(broadcaster_id, streamer_config, token):
     """Verifica status de live de um streamer específico"""
-    from bot import bot  # Import local para evitar circular import
-    
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
+
     channel = bot.get_channel(streamer_config.live_channel)
     if not channel:
         debug_log(f"Canal de notificação não encontrado para {streamer_config.username}")
@@ -95,8 +96,10 @@ async def send_live_notification(streamer_config, channel):
 @check_live_status_loop.before_loop
 async def before_check_live():
     """Aguarda o bot estar pronto"""
-    from bot import bot  # Import local para evitar circular import
-    await bot.wait_until_ready()
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
+    if bot:
+        await bot.wait_until_ready()
     log("📺 Loop de verificação de lives iniciado")
 
 @check_live_status_loop.error
