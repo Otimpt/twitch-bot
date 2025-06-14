@@ -1,6 +1,7 @@
 """Loop de verificação de clips"""
 
 import io
+import asyncio
 import aiohttp
 import discord
 from datetime import datetime, timezone, timedelta
