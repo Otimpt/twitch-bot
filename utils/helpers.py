@@ -58,8 +58,8 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
         "{timestamp}": str(timestamp)
     }
     
-    title = template["title"]
-    description = template["description"]
+    title = template.get("embed_title", template.get("title", ""))
+    description = template.get("embed_description", template.get("description", ""))
     
     # Aplicar substituições
     for placeholder, value in replacements.items():
@@ -69,7 +69,9 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
     # Determinar qual template está sendo usado
     template_key = "simples"  # padrão
     for key, tmpl in PRESET_TEMPLATES["lives"].items():
-        if tmpl["title"] == template["title"] and tmpl["description"] == template["description"]:
+        tmpl_title = tmpl.get("embed_title", tmpl.get("title"))
+        tmpl_desc = tmpl.get("embed_description", tmpl.get("description"))
+        if tmpl_title == title and tmpl_desc == description:
             template_key = key
             break
     

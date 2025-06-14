@@ -40,36 +40,36 @@ PRESET_TEMPLATES = {
     },
     "lives": {
         "simples": {
-            "title": "🔴 {streamer} está ao vivo!",
-            "description": "**{streamer}** começou a transmitir na Twitch!\n\n🔗 [Assistir agora](https://twitch.tv/{username})",
+            "embed_title": "🔴 {streamer} está ao vivo!",
+            "embed_description": "**{streamer}** começou a transmitir na Twitch!\n\n🔗 [Assistir agora](https://twitch.tv/{username})",
             "name": "Simples",
             "description": "Notificação básica de live",
             "style": "clean"
         },
         "detalhado": {
-            "title": "📺 LIVE INICIADA - {streamer}",
-            "description": "🎮 **{streamer}** está ao vivo na Twitch!\n\n📊 **Detalhes da Live:**\n🔗 **Link:** https://twitch.tv/{username}\n⏰ **Iniciada:** <t:{timestamp}:R>\n🎯 **Status:** 🔴 AO VIVO",
+            "embed_title": "📺 LIVE INICIADA - {streamer}",
+            "embed_description": "🎮 **{streamer}** está ao vivo na Twitch!\n\n📊 **Detalhes da Live:**\n🔗 **Link:** https://twitch.tv/{username}\n⏰ **Iniciada:** <t:{timestamp}:R>\n🎯 **Status:** 🔴 AO VIVO",
             "name": "Detalhado",
             "description": "Com informações completas da live",
             "style": "detailed"
         },
         "gaming": {
-            "title": "🎮 {streamer} entrou no jogo!",
-            "description": "🔥 **{streamer}** está online e pronto para a ação!\n\n🎯 **A diversão começou!**\n🎮 Venha assistir: https://twitch.tv/{username}\n⚡ Não perca a gameplay!",
+            "embed_title": "🎮 {streamer} entrou no jogo!",
+            "embed_description": "🔥 **{streamer}** está online e pronto para a ação!\n\n🎯 **A diversão começou!**\n🎮 Venha assistir: https://twitch.tv/{username}\n⚡ Não perca a gameplay!",
             "name": "Gaming",
             "description": "Focado em jogos e ação",
             "style": "gaming"
         },
         "hype": {
-            "title": "🚨 {streamer} ESTÁ AO VIVO! 🚨",
-            "description": "🔥🔥🔥 **{streamer}** COMEÇOU A LIVE! 🔥🔥🔥\n\n🚨 **ALERTA MÁXIMO!** 🚨\n🎯 **NÃO PERCA:** https://twitch.tv/{username}\n⚡ **CORRE LÁ AGORA!**\n🔥 **HYPE TOTAL!**",
+            "embed_title": "🚨 {streamer} ESTÁ AO VIVO! 🚨",
+            "embed_description": "🔥🔥🔥 **{streamer}** COMEÇOU A LIVE! 🔥🔥🔥\n\n🚨 **ALERTA MÁXIMO!** 🚨\n🎯 **NÃO PERCA:** https://twitch.tv/{username}\n⚡ **CORRE LÁ AGORA!**\n🔥 **HYPE TOTAL!**",
             "name": "Hype",
             "description": "Muito animado e chamativo",
             "style": "hype"
         },
         "chill": {
-            "title": "✨ {streamer} está transmitindo",
-            "description": "💜 **{streamer}** está ao vivo para uma sessão relaxante\n\n🌙 **Vibe tranquila**\n✨ Venha relaxar: https://twitch.tv/{username}\n🎵 Momento zen começou...",
+            "embed_title": "✨ {streamer} está transmitindo",
+            "embed_description": "💜 **{streamer}** está ao vivo para uma sessão relaxante\n\n🌙 **Vibe tranquila**\n✨ Venha relaxar: https://twitch.tv/{username}\n🎵 Momento zen começou...",
             "name": "Chill",
             "description": "Relaxante e tranquilo",
             "style": "chill"
