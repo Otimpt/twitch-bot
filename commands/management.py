@@ -22,7 +22,7 @@ async def management_commands(bot):
         if server_id not in server_streamers or not server_streamers[server_id]:
             embed = discord.Embed(
                 title="📭 Nenhum Streamer",
-                description="Use `/setup` para adicionar streamers para monitoramento.",
+                description="Use `/twitch-setup` para adicionar streamers para monitoramento.",
                 color=0xff0000
             )
             await interaction.response.send_message(embed=embed)
@@ -119,7 +119,7 @@ async def management_commands(bot):
         if not broadcaster_id:
             embed = discord.Embed(
                 title="❌ Streamer não encontrado",
-                description=f"O streamer **{username}** não está configurado neste servidor.\n\nUse `/setup` para adicionar primeiro.",
+                description=f"O streamer **{username}** não está configurado neste servidor.\n\nUse `/twitch-setup` para adicionar primeiro.",
                 color=0xff0000
             )
             await interaction.followup.send(embed=embed)
