@@ -16,15 +16,16 @@ Bot do Discord para enviar automaticamente clips recentes da Twitch.
 ## Comandos
 
 ### Twitch
-- `/twitch_setup canal_twitch #canal_discord` - Configura monitoramento
-- `/twitch_status` - Mostra status do monitoramento
+- `/twitch-setup canal_twitch #canal_discord` - Configura monitoramento
+- `/status` - Mostra status do monitoramento
   - `canal_twitch` pode ser apenas o nome ou uma URL do canal
 
 #### Como funciona
-1. O comando `/twitch_setup` define qual canal da Twitch sera monitorado e em qual canal do Discord os clips serao postados.
-2. A cada `CLIP_CHECK_SECONDS` segundos o bot consulta a API da Twitch em busca dos 100 clips mais recentes do canal (30s por padrão).
+1. O comando `/twitch-setup` define qual canal da Twitch **será** monitorado e em qual canal do Discord os clipes **serão** postados.
+2. A cada `CLIP_CHECK_SECONDS` segundos o bot consulta a API da Twitch em busca dos 100 clipes mais recentes do canal (60s por padrão).
 3. O bot filtra os clipes por data e envia apenas aqueles que ainda não foram postados.
-4. Voce pode usar `/twitch_status` para verificar se o monitoramento esta ativo.
+4. **Você** pode usar `/status` para verificar se o monitoramento **está** ativo.
+5. Caso o canal já esteja em live quando o bot iniciar, a notificação será enviada na primeira verificação.
 
 ### Utilidades
 - `/ping` - Verifica latência do bot
@@ -89,7 +90,7 @@ Ao convidar o bot para o servidor, conceda pelo menos as seguintes permissões:
 ## Estrutura do Projeto
 
 ```
-bot-discord/
+twitch-bot/
 ├── bot.py            # Código principal do bot
 ├── requirements.txt  # Dependências Python
 ├── .env.example      # Exemplo de variáveis de ambiente

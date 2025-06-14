@@ -173,7 +173,7 @@ async def notification_commands(bot):
         if server_id not in server_streamers or not server_streamers[server_id]:
             embed = discord.Embed(
                 title="❌ Nenhum Streamer",
-                description="Use `/setup` para adicionar streamers primeiro.",
+                description="Use `/twitch-setup` para adicionar streamers primeiro.",
                 color=0xff0000
             )
             await interaction.response.send_message(embed=embed)
