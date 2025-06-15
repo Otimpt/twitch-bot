@@ -48,14 +48,22 @@ def format_template(template: str, clip: dict, streamer_name: str, **kwargs) -> 
     
     return result
 
-def format_live_template(template: dict, streamer_name: str, username: str) -> discord.Embed:
+def format_live_template(
+    template: dict,
+    streamer_name: str,
+    username: str,
+    game_name: str = "",
+    thumbnail_url: str = ""
+) -> discord.Embed:
     """Formata template de live com estilos personalizados"""
     timestamp = int(datetime.now().timestamp())
     
     replacements = {
         "{streamer}": streamer_name,
         "{username}": username,
-        "{timestamp}": str(timestamp)
+        "{timestamp}": str(timestamp),
+        "{game}": game_name,
+        "{thumbnail}": thumbnail_url,
     }
     
     title = template.get("embed_title", template.get("title", ""))
@@ -116,6 +124,10 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
         embed.add_field(name="✨ Vibe", value="Relaxante", inline=True)
         embed.add_field(name="🌙 Mood", value="Chill", inline=True)
         embed.set_footer(text="Momento zen 🌙✨", icon_url="https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-70x70.png")
+
+    if thumbnail_url:
+        clean_thumb = thumbnail_url.replace("{width}", "1280").replace("{height}", "720")
+        embed.set_image(url=clean_thumb)
     
     return embed
 

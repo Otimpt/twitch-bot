@@ -49,7 +49,7 @@ async def check_streamer_live_status(broadcaster_id, streamer_config, token):
 
         if is_live and not was_live:
             # Streamer ficou online
-            await send_live_notification(streamer_config, channel)
+            await send_live_notification(streamer_config, channel, token)
             live_streamers[broadcaster_id] = True
             log(f"📺 {streamer_config.display_name} ficou online")
             
@@ -61,18 +61,28 @@ async def check_streamer_live_status(broadcaster_id, streamer_config, token):
     except Exception as e:
         log(f"Erro ao verificar live de {streamer_config.username}: {e}", "ERROR")
 
-async def send_live_notification(streamer_config, channel):
+async def send_live_notification(streamer_config, channel, token):
     """Envia notificação de live"""
     try:
         display_name = streamer_config.display_name
-        
-        # Usar template configurado
+
+        from utils.twitch_api import get_stream_info
+        stream_info = await get_stream_info(streamer_config.broadcaster_id, token)
+        game = stream_info.get("game_name", "") if stream_info else ""
+        thumbnail = stream_info.get("thumbnail_url", "") if stream_info else ""
+
         template = PRESET_TEMPLATES["lives"].get(
-            streamer_config.live_template, 
+            streamer_config.live_template,
             PRESET_TEMPLATES["lives"]["simples"]
         )
-        
-        embed = format_live_template(template, display_name, streamer_config.username)
+
+        embed = format_live_template(
+            template,
+            display_name,
+            streamer_config.username,
+            game_name=game,
+            thumbnail_url=thumbnail,
+        )
         
         # Adicionar informações extras baseadas no template
         if streamer_config.live_template == "detalhado":
