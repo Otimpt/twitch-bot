@@ -53,9 +53,8 @@ def load_cache():
         for server_id, timestamp in data.get("last_check_time", {}).items():
             last_check_time[int(server_id)] = datetime.fromisoformat(timestamp)
         
-        # Carregar status de live
+        # Reiniciar status de lives (não persiste entre reinícios)
         live_streamers.clear()
-        live_streamers.update(data.get("live_streamers", {}))
         
         total_clips = sum(len(clips) for clips in posted_clips.values())
         total_streamers = sum(len(streamers) for streamers in server_streamers.values())
@@ -116,8 +115,7 @@ def save_cache():
             "last_check_time": {
                 str(server_id): timestamp.isoformat()
                 for server_id, timestamp in last_check_time.items()
-            },
-            "live_streamers": live_streamers
+            }
         }
         
         with open(CACHE_FILE, "w", encoding="utf-8") as f:

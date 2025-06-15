@@ -8,6 +8,18 @@ from config.settings import DEBUG_MODE
 from config.templates import PRESET_TEMPLATES, TEMPLATE_COLORS
 from models.dataclasses import StreamerConfig, ThemeConfig, TemplateConfig, ServerStats
 
+def get_running_bot():
+    """Retorna instância do bot atualmente em execução"""
+    import sys
+    main_mod = sys.modules.get("__main__")
+    if main_mod and hasattr(main_mod, "bot"):
+        return main_mod.bot
+    try:
+        from bot import bot as running_bot
+        return running_bot
+    except Exception:
+        return None
+
 def log(message: str, level: str = "INFO"):
     """Sistema de log simples"""
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -36,18 +48,26 @@ def format_template(template: str, clip: dict, streamer_name: str, **kwargs) -> 
     
     return result
 
-def format_live_template(template: dict, streamer_name: str, username: str) -> discord.Embed:
+def format_live_template(
+    template: dict,
+    streamer_name: str,
+    username: str,
+    game_name: str = "",
+    thumbnail_url: str = ""
+) -> discord.Embed:
     """Formata template de live com estilos personalizados"""
     timestamp = int(datetime.now().timestamp())
     
     replacements = {
         "{streamer}": streamer_name,
         "{username}": username,
-        "{timestamp}": str(timestamp)
+        "{timestamp}": str(timestamp),
+        "{game}": game_name,
+        "{thumbnail}": thumbnail_url,
     }
     
-    title = template["title"]
-    description = template["description"]
+    title = template.get("embed_title", template.get("title", ""))
+    description = template.get("embed_description", template.get("description", ""))
     
     # Aplicar substituições
     for placeholder, value in replacements.items():
@@ -57,7 +77,9 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
     # Determinar qual template está sendo usado
     template_key = "simples"  # padrão
     for key, tmpl in PRESET_TEMPLATES["lives"].items():
-        if tmpl["title"] == template["title"] and tmpl["description"] == template["description"]:
+        tmpl_title = tmpl.get("embed_title", tmpl.get("title"))
+        tmpl_desc = tmpl.get("embed_description", tmpl.get("description"))
+        if tmpl_title == title and tmpl_desc == description:
             template_key = key
             break
     
@@ -102,6 +124,10 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
         embed.add_field(name="✨ Vibe", value="Relaxante", inline=True)
         embed.add_field(name="🌙 Mood", value="Chill", inline=True)
         embed.set_footer(text="Momento zen 🌙✨", icon_url="https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-70x70.png")
+
+    if thumbnail_url:
+        clean_thumb = thumbnail_url.replace("{width}", "1280").replace("{height}", "720")
+        embed.set_image(url=clean_thumb)
     
     return embed
 

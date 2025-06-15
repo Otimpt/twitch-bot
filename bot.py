@@ -118,7 +118,7 @@ async def help_command(interaction: discord.Interaction):
 
     embed.add_field(
         name="⚙️ Configuração Básica",
-        value="`/setup` - Adiciona streamer para monitoramento\n`/list` - Lista streamers configurados\n`/remove` - Remove streamer\n`/toggle` - Ativa/desativa streamer",
+        value="`/twitch-setup` - Adiciona streamer para monitoramento\n`/list` - Lista streamers configurados\n`/remove` - Remove streamer\n`/toggle` - Ativa/desativa streamer",
         inline=False
     )
 
