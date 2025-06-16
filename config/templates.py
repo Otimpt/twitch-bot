@@ -7,35 +7,40 @@ PRESET_TEMPLATES = {
             "embed_title": "{title}",
             "embed_description": "Novo clip de **{streamer}**!",
             "name": "Simples",
-            "description": "Template básico e limpo"
+            "description": "Template básico e limpo",
+            "style": "padrao"
         },
         "detalhado": {
             "message_format": "🎬 **Novo Clip!** {url}",
             "embed_title": "🎯 {title}",
             "embed_description": "**{streamer}** fez um clip épico!\n👤 Criado por: {creator}\n👀 Views: {views}\n⏱️ Duração: {duration}",
             "name": "Detalhado",
-            "description": "Com todas as informações do clip"
+            "description": "Com todas as informações do clip",
+            "style": "detalhado"
         },
         "gaming": {
             "message_format": "🎮 CLIP ÉPICO! {url}",
             "embed_title": "⚡ {title}",
             "embed_description": "**{streamer}** mandou bem! 🔥\nClip criado por {creator}",
             "name": "Gaming",
-            "description": "Focado em jogos com emojis"
+            "description": "Focado em jogos com emojis",
+            "style": "padrao"
         },
         "minimalista": {
             "message_format": "{url}",
             "embed_title": "{title}",
             "embed_description": "{streamer}",
             "name": "Minimalista",
-            "description": "Apenas o essencial"
+            "description": "Apenas o essencial",
+            "style": "minimalista"
         },
         "hype": {
             "message_format": "🚨 **CLIP INSANO!** 🚨 {url}",
             "embed_title": "🔥 {title} 🔥",
             "embed_description": "**{streamer}** está ON FIRE! 🎯\n\n👤 **Criador:** {creator}\n👀 **Views:** {views}\n⏱️ **Duração:** {duration}",
             "name": "Hype",
-            "description": "Muito animado e cheio de energia"
+            "description": "Muito animado e cheio de energia",
+            "style": "detalhado"
         }
     },
     "lives": {

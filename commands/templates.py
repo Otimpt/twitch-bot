@@ -38,9 +38,16 @@ async def template_commands(bot):
             template_config.embed_title = selected_template["embed_title"]
             template_config.embed_description = selected_template["embed_description"]
             template_config.preset_name = self.values[0]
-            
+
+            # Aplicar estilo associado ao template
+            template_style = selected_template.get("style")
+            if template_style:
+                if server_id not in server_themes:
+                    server_themes[server_id] = ThemeConfig()
+                server_themes[server_id].style = template_style
+
             save_cache()
-            
+
             embed = discord.Embed(
                 title="✅ Template de Clips Aplicado",
                 description=f"Template **{selected_template['name']}** configurado com sucesso!",
@@ -49,6 +56,13 @@ async def template_commands(bot):
             embed.add_field(name="💬 Mensagem", value=f"`{selected_template['message_format']}`", inline=False)
             embed.add_field(name="📝 Título", value=f"`{selected_template['embed_title']}`", inline=False)
             embed.add_field(name="📄 Descrição", value=f"`{selected_template['embed_description']}`", inline=False)
+            if template_style:
+                style_names = {"padrao": "Padrão", "minimalista": "Minimalista", "detalhado": "Detalhado"}
+                embed.add_field(
+                    name="🎨 Estilo",
+                    value=style_names.get(template_style, template_style),
+                    inline=False,
+                )
             
             await interaction.response.edit_message(embed=embed, view=None)
 
