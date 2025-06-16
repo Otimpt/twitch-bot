@@ -151,9 +151,9 @@ def create_clip_embed(clip: dict, streamer_config: StreamerConfig, theme: ThemeC
 
     # Campos baseados no estilo
     if theme.style == "minimalista":
-        embed.add_field(name="📺", value=display_name, inline=True)
-        if theme.show_details:
-            embed.add_field(name="👀", value=str(clip.get("view_count", 0)), inline=True)
+        # No estilo minimalista nenhuma informação adicional deve aparecer
+        # apenas o título/descrição já fornecidos no template
+        pass
     
     elif theme.style == "detalhado":
         embed.add_field(name="📺 Canal", value=display_name, inline=True)
