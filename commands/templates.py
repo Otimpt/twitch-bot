@@ -63,7 +63,7 @@ async def template_commands(bot):
         tipo: str = "clips",
         mensagem_custom: str = "",
         titulo_custom: str = "",
-        descricao_custom: str = ""
+        descricao_custom: str = "",
     ):
         """Configura templates com seletor visual"""
         server_id = interaction.guild.id
@@ -127,39 +127,3 @@ async def template_commands(bot):
             
             view = ClipTemplateView()
             await interaction.response.send_message(embed=embed, view=view)
-
-    @bot.tree.command(name="clips-templates", description="Lista templates pré-prontos para clips")
-    async def list_templates_command(interaction: discord.Interaction):
-        """Exibe todos os templates disponíveis para clips"""
-        server_id = interaction.guild.id
-
-        current_key = "simples"
-        if server_id in server_templates:
-            current_key = server_templates[server_id].preset_name
-
-        current_name = PRESET_TEMPLATES["clips"].get(current_key, {}).get("name", "Personalizado")
-
-        embed = discord.Embed(
-            title="📋 Templates de Clips Disponíveis",
-            description=f"Template atual: **{current_name}**",
-            color=0x9146FF,
-        )
-
-        emoji_map = {
-            "simples": "📝",
-            "detalhado": "📊",
-            "gaming": "🎮",
-            "minimalista": "⚡",
-            "hype": "🔥",
-        }
-
-        for key, template in PRESET_TEMPLATES["clips"].items():
-            emoji = emoji_map.get(key, "📝")
-            embed.add_field(
-                name=f"{emoji} {template['name']}",
-                value=template["description"],
-                inline=False,
-            )
-
-        embed.set_footer(text="Use /clips-template para aplicar um template")
-        await interaction.response.send_message(embed=embed)
