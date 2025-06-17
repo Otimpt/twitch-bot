@@ -132,8 +132,13 @@ async def send_clip_message(clip, streamer_config, theme_config, template_config
         if template_config.ping_role:
             message_content = f"<@&{template_config.ping_role}> {message_content}"
 
-        # Enviar mensagem
-        await channel.send(content=message_content, embed=embed, files=files)
+        # Enviar mensagem sem a incorporação automática do link
+        await channel.send(
+            content=message_content,
+            embed=embed,
+            files=files,
+            suppress_embeds=True,
+        )
 
         # Marcar como enviado
         posted_clips.setdefault(server_id, set()).add(clip["id"])
