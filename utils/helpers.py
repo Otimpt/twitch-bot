@@ -32,14 +32,19 @@ def debug_log(message: str):
 
 def format_template(template: str, clip: dict, streamer_name: str, **kwargs) -> str:
     """Formata template com dados do clip"""
+    clip_url = clip.get("url", "")
+    if clip_url:
+        # Envolver URL em <> para evitar preview duplicado no Discord
+        clip_url = f"<{clip_url}>"
+
     replacements = {
         "{title}": clip.get("title", "Clip sem título"),
         "{streamer}": streamer_name,
         "{creator}": clip.get("creator_name", "Desconhecido"),
         "{views}": str(clip.get("view_count", 0)),
         "{duration}": f"{clip.get('duration', 0):.1f}s",
-        "{url}": clip.get("url", ""),
-        **kwargs
+        "{url}": clip_url,
+        **kwargs,
     }
     
     result = template
