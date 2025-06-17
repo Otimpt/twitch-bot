@@ -97,7 +97,10 @@ async def send_live_notification(streamer_config, channel, token):
                 inline=True
             )
         
-        await channel.send(embed=embed)
+        await channel.send(
+            content=streamer_config.live_message or None,
+            embed=embed,
+        )
         log(f"📺 Notificação de live enviada: {display_name}")
         
     except Exception as e:

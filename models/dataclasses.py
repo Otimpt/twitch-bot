@@ -15,6 +15,7 @@ class StreamerConfig:
     live_notifications: bool = False
     live_channel: int = 0
     live_template: str = "simples"
+    live_message: str = ""
     
     def __post_init__(self):
         """Validações após inicialização"""
