@@ -149,7 +149,6 @@ def create_clip_embed(clip: dict, streamer_config: StreamerConfig, theme: ThemeC
     embed = discord.Embed(
         title=title,
         description=description if template.embed_description else None,
-        url=clip.get("url"),
         color=theme.color,
         timestamp=datetime.fromisoformat(clip.get("created_at", "").replace("Z", "+00:00"))
     )
