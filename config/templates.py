@@ -3,7 +3,7 @@
 PRESET_TEMPLATES = {
     "clips": {
         "simples": {
-            "message_format": "{url}",
+            "message_format": "",
             "embed_title": "{title}",
             "embed_description": "Novo clip de **{streamer}**!",
             "name": "Simples",
@@ -11,7 +11,7 @@ PRESET_TEMPLATES = {
             "style": "padrao"
         },
         "detalhado": {
-            "message_format": "🎬 **Novo Clip!** {url}",
+            "message_format": "🎬 **Novo Clip!**",
             "embed_title": "🎯 {title}",
             "embed_description": "**{streamer}** fez um clip épico!\n👤 Criado por: {creator}\n👀 Views: {views}\n⏱️ Duração: {duration}",
             "name": "Detalhado",
@@ -19,7 +19,7 @@ PRESET_TEMPLATES = {
             "style": "detalhado"
         },
         "gaming": {
-            "message_format": "🎮 CLIP ÉPICO! {url}",
+            "message_format": "🎮 CLIP ÉPICO!",
             "embed_title": "⚡ {title}",
             "embed_description": "**{streamer}** mandou bem! 🔥\nClip criado por {creator}",
             "name": "Gaming",
@@ -27,7 +27,7 @@ PRESET_TEMPLATES = {
             "style": "padrao"
         },
         "minimalista": {
-            "message_format": "{url}",
+            "message_format": "",
             "embed_title": "{title}",
             "embed_description": "{streamer}",
             "name": "Minimalista",
@@ -35,7 +35,7 @@ PRESET_TEMPLATES = {
             "style": "minimalista"
         },
         "hype": {
-            "message_format": "🚨 **CLIP INSANO!** 🚨 {url}",
+            "message_format": "🚨 **CLIP INSANO!** 🚨",
             "embed_title": "🔥 {title} 🔥",
             "embed_description": "**{streamer}** está ON FIRE! 🎯\n\n👤 **Criador:** {creator}\n👀 **Views:** {views}\n⏱️ **Duração:** {duration}",
             "name": "Hype",
@@ -161,7 +161,7 @@ DEFAULT_THEME_CONFIG = {
 
 # ==== CONFIGURAÇÕES DE TEMPLATE PADRÃO ====
 DEFAULT_TEMPLATE_CONFIG = {
-    "message_format": "{url}",
+    "message_format": "",
     "embed_title": "{title}",
     "embed_description": "Novo clip de **{streamer}**!",
     "use_custom_message": False,

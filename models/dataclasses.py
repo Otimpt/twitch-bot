@@ -129,7 +129,7 @@ class ThemeConfig:
 @dataclass
 class TemplateConfig:
     """Configuração de templates de mensagem"""
-    message_format: str = "{url}"
+    message_format: str = ""
     embed_title: str = "{title}"
     embed_description: str = "Novo clip de **{streamer}**!"
     use_custom_message: bool = False
@@ -139,8 +139,8 @@ class TemplateConfig:
     def __post_init__(self):
         """Validações após inicialização"""
         # Garantir que os campos não estejam vazios
-        if not self.message_format:
-            self.message_format = "{url}"
+        if self.message_format is None:
+            self.message_format = ""
         if not self.embed_title:
             self.embed_title = "{title}"
         if not self.embed_description:

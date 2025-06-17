@@ -150,6 +150,7 @@ def create_clip_embed(clip: dict, streamer_config: StreamerConfig, theme: ThemeC
         title=title,
         description=description if template.embed_description else None,
         color=theme.color,
+        url=clip.get("url", ""),
         timestamp=datetime.fromisoformat(clip.get("created_at", "").replace("Z", "+00:00"))
     )
 
