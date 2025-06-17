@@ -6,11 +6,13 @@ from discord.ext import commands
 from config.settings import *
 from models.dataclasses import *
 from utils.cache import save_cache
+from utils.helpers import is_admin_or_mod
 
 async def filter_commands(bot):
     """Registra comandos de filtros"""
 
     @bot.tree.command(name="filtros", description="Configura filtros de clips com interface visual")
+    @is_admin_or_mod()
     async def filtros_command(
         interaction: discord.Interaction,
         acao: str = "ver",  # ver, views, duracao, palavras, criadores

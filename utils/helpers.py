@@ -7,6 +7,7 @@ from typing import Dict, Any
 from config.settings import DEBUG_MODE
 from config.templates import PRESET_TEMPLATES, TEMPLATE_COLORS
 from models.dataclasses import StreamerConfig, ThemeConfig, TemplateConfig, ServerStats
+from discord import app_commands
 
 def get_running_bot():
     """Retorna instância do bot atualmente em execução"""
@@ -29,6 +30,14 @@ def debug_log(message: str):
     """Log apenas se debug estiver ativado"""
     if DEBUG_MODE:
         log(message, "DEBUG")
+
+def is_admin_or_mod():
+    """Check decorator para limitar comandos a moderadores"""
+    async def predicate(interaction: discord.Interaction) -> bool:
+        perms = interaction.user.guild_permissions
+        return perms.manage_guild or perms.administrator
+
+    return app_commands.check(predicate)
 
 def format_template(template: str, clip: dict, streamer_name: str, **kwargs) -> str:
     """Formata template com dados do clip"""

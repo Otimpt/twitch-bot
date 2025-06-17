@@ -9,6 +9,7 @@ from config.settings import *
 from models.dataclasses import *
 from utils.cache import save_cache
 from utils.twitch_api import parse_twitch_username
+from utils.helpers import is_admin_or_mod
 
 async def notification_commands(bot):
     """Registra comandos de notificações"""
@@ -185,6 +186,7 @@ async def notification_commands(bot):
             self.add_item(LiveTemplateSelect(streamer_config, channel, enable, message))
 
     @bot.tree.command(name="live-notifications", description="Configura notificações de live para um streamer específico")
+    @is_admin_or_mod()
     async def notificacoes_command(
         interaction: discord.Interaction,
         streamer: str,

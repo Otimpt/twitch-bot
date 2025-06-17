@@ -7,6 +7,7 @@ from config.templates import PRESET_TEMPLATES
 from config.settings import *
 from models.dataclasses import *
 from utils.cache import save_cache
+from utils.helpers import is_admin_or_mod
 
 async def template_commands(bot):
     """Registra comandos de templates"""
@@ -72,6 +73,7 @@ async def template_commands(bot):
             self.add_item(ClipTemplateSelect())
 
     @bot.tree.command(name="clips-template", description="Configura templates de mensagem com seletor visual")
+    @is_admin_or_mod()
     async def template_command(
         interaction: discord.Interaction,
         tipo: str = "clips",

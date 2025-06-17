@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from utils.twitch_api import get_twitch_token, fetch_clips, parse_twitch_username
 from utils.filters import apply_filters
 from utils.cache import save_cache
-from utils.helpers import log
+from utils.helpers import log, is_admin_or_mod
 from config.settings import *
 from models.dataclasses import *
 
@@ -15,6 +15,7 @@ async def management_commands(bot):
     """Registra comandos de gerenciamento"""
 
     @bot.tree.command(name="list-channels", description="Lista todos os streamers monitorados")
+    @is_admin_or_mod()
     async def list_command(interaction: discord.Interaction):
         """Lista streamers do servidor"""
         server_id = interaction.guild.id
@@ -54,6 +55,7 @@ async def management_commands(bot):
         await interaction.response.send_message(embed=embed)
 
     @bot.tree.command(name="remove", description="Remove um streamer do monitoramento")
+    @is_admin_or_mod()
     async def remove_command(interaction: discord.Interaction, streamer: str):
         """Remove streamer"""
         server_id = interaction.guild.id
@@ -98,6 +100,7 @@ async def management_commands(bot):
         log(f"Streamer {removed_config.username} removido do servidor {server_id}")
 
     @bot.tree.command(name="test", description="Testa busca de clips para um streamer específico")
+    @is_admin_or_mod()
     async def test_command(interaction: discord.Interaction, streamer: str):
         """Testa busca de clips"""
         await interaction.response.defer()
@@ -193,6 +196,7 @@ async def management_commands(bot):
         await interaction.followup.send(embed=embed)
 
     @bot.tree.command(name="toggle", description="Ativa/desativa monitoramento de um streamer")
+    @is_admin_or_mod()
     async def toggle_command(interaction: discord.Interaction, streamer: str):
         """Toggle streamer ativo/inativo"""
         server_id = interaction.guild.id
