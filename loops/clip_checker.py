@@ -137,7 +137,7 @@ async def send_clip_message(clip, streamer_config, theme_config, template_config
             content=message_content or None,
             embed=embed,
             files=files,
-            suppress_embeds=True,
+            suppress_embeds=bool(message_content),
         )
 
         # Marcar como enviado

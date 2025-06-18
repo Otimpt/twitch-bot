@@ -226,11 +226,11 @@ async def theme_commands(bot):
             embed.add_field(name="🌈 Cor", value=f"#{current_theme.color:06x}", inline=True)
             embed.add_field(name="🖼️ Thumbnail", value="✅ Sim" if current_theme.show_thumbnail else "❌ Não", inline=True)
             embed.add_field(name="📊 Detalhes", value="✅ Sim" if current_theme.show_details else "❌ Não", inline=True)
-            
+
             embed.add_field(
                 name="⚙️ Comandos Disponíveis",
                 value="`/tema configurar:style` - Alterar estilo\n`/tema configurar:color` - Alterar cor\n`/tema configurar:thumbnail` - Toggle thumbnail\n`/tema configurar:details` - Toggle detalhes",
                 inline=False
             )
-            
+
             await interaction.response.send_message(embed=embed)
