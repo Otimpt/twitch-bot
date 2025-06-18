@@ -107,7 +107,8 @@ async def verify_data_integrity():
         issues_found = 0
         
         # Verificar se todos os canais Discord ainda existem
-        from bot import bot  # Import local
+        from utils.helpers import get_running_bot
+        bot = get_running_bot()
         
         for server_id, streamers in server_streamers.items():
             guild = bot.get_guild(server_id)
@@ -140,8 +141,10 @@ async def verify_data_integrity():
 @maintenance_loop.before_loop
 async def before_maintenance():
     """Aguarda o bot estar pronto"""
-    from bot import bot  # Import local
-    await bot.wait_until_ready()
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
+    if bot:
+        await bot.wait_until_ready()
     
     # Aguardar 1 hora após o bot iniciar para primeira manutenção
     await asyncio.sleep(3600)

@@ -35,8 +35,9 @@ async def check_live_status_loop():
 
 async def check_streamer_live_status(broadcaster_id, streamer_config, token):
     """Verifica status de live de um streamer específico"""
-    from bot import bot  # Import local para evitar circular import
-    
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
+
     channel = bot.get_channel(streamer_config.live_channel)
     if not channel:
         debug_log(f"Canal de notificação não encontrado para {streamer_config.username}")
@@ -48,7 +49,7 @@ async def check_streamer_live_status(broadcaster_id, streamer_config, token):
 
         if is_live and not was_live:
             # Streamer ficou online
-            await send_live_notification(streamer_config, channel)
+            await send_live_notification(streamer_config, channel, token)
             live_streamers[broadcaster_id] = True
             log(f"📺 {streamer_config.display_name} ficou online")
             
@@ -60,18 +61,28 @@ async def check_streamer_live_status(broadcaster_id, streamer_config, token):
     except Exception as e:
         log(f"Erro ao verificar live de {streamer_config.username}: {e}", "ERROR")
 
-async def send_live_notification(streamer_config, channel):
+async def send_live_notification(streamer_config, channel, token):
     """Envia notificação de live"""
     try:
         display_name = streamer_config.display_name
-        
-        # Usar template configurado
+
+        from utils.twitch_api import get_stream_info
+        stream_info = await get_stream_info(streamer_config.broadcaster_id, token)
+        game = stream_info.get("game_name", "") if stream_info else ""
+        thumbnail = stream_info.get("thumbnail_url", "") if stream_info else ""
+
         template = PRESET_TEMPLATES["lives"].get(
-            streamer_config.live_template, 
+            streamer_config.live_template,
             PRESET_TEMPLATES["lives"]["simples"]
         )
-        
-        embed = format_live_template(template, display_name, streamer_config.username)
+
+        embed = format_live_template(
+            template,
+            display_name,
+            streamer_config.username,
+            game_name=game,
+            thumbnail_url=thumbnail,
+        )
         
         # Adicionar informações extras baseadas no template
         if streamer_config.live_template == "detalhado":
@@ -86,7 +97,10 @@ async def send_live_notification(streamer_config, channel):
                 inline=True
             )
         
-        await channel.send(embed=embed)
+        await channel.send(
+            content=streamer_config.live_message or None,
+            embed=embed,
+        )
         log(f"📺 Notificação de live enviada: {display_name}")
         
     except Exception as e:
@@ -95,8 +109,10 @@ async def send_live_notification(streamer_config, channel):
 @check_live_status_loop.before_loop
 async def before_check_live():
     """Aguarda o bot estar pronto"""
-    from bot import bot  # Import local para evitar circular import
-    await bot.wait_until_ready()
+    from utils.helpers import get_running_bot
+    bot = get_running_bot()
+    if bot:
+        await bot.wait_until_ready()
     log("📺 Loop de verificação de lives iniciado")
 
 @check_live_status_loop.error

@@ -7,6 +7,7 @@ from config.templates import PRESET_TEMPLATES
 from config.settings import *
 from models.dataclasses import *
 from utils.cache import save_cache
+from utils.helpers import is_admin_or_mod
 
 async def template_commands(bot):
     """Registra comandos de templates"""
@@ -38,9 +39,16 @@ async def template_commands(bot):
             template_config.embed_title = selected_template["embed_title"]
             template_config.embed_description = selected_template["embed_description"]
             template_config.preset_name = self.values[0]
-            
+
+            # Aplicar estilo associado ao template
+            template_style = selected_template.get("style")
+            if template_style:
+                if server_id not in server_themes:
+                    server_themes[server_id] = ThemeConfig()
+                server_themes[server_id].style = template_style
+
             save_cache()
-            
+
             embed = discord.Embed(
                 title="✅ Template de Clips Aplicado",
                 description=f"Template **{selected_template['name']}** configurado com sucesso!",
@@ -49,6 +57,13 @@ async def template_commands(bot):
             embed.add_field(name="💬 Mensagem", value=f"`{selected_template['message_format']}`", inline=False)
             embed.add_field(name="📝 Título", value=f"`{selected_template['embed_title']}`", inline=False)
             embed.add_field(name="📄 Descrição", value=f"`{selected_template['embed_description']}`", inline=False)
+            if template_style:
+                style_names = {"padrao": "Padrão", "minimalista": "Minimalista", "detalhado": "Detalhado"}
+                embed.add_field(
+                    name="🎨 Estilo",
+                    value=style_names.get(template_style, template_style),
+                    inline=False,
+                )
             
             await interaction.response.edit_message(embed=embed, view=None)
 
@@ -58,12 +73,13 @@ async def template_commands(bot):
             self.add_item(ClipTemplateSelect())
 
     @bot.tree.command(name="clips-template", description="Configura templates de mensagem com seletor visual")
+    @is_admin_or_mod()
     async def template_command(
         interaction: discord.Interaction,
         tipo: str = "clips",
         mensagem_custom: str = "",
         titulo_custom: str = "",
-        descricao_custom: str = ""
+        descricao_custom: str = "",
     ):
         """Configura templates com seletor visual"""
         server_id = interaction.guild.id

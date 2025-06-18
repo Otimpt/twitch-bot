@@ -6,6 +6,7 @@ from discord.ext import commands
 from config.settings import *
 from models.dataclasses import *
 from utils.cache import save_cache
+from utils.helpers import is_admin_or_mod
 
 async def theme_commands(bot):
     """Registra comandos de temas"""
@@ -129,6 +130,7 @@ async def theme_commands(bot):
                 self.add_item(ThemeColorSelect())
 
     @bot.tree.command(name="tema", description="Configura aparência dos embeds com seletor visual")
+    @is_admin_or_mod()
     async def tema_command(
         interaction: discord.Interaction,
         configurar: str = "style"  # style, color, thumbnail, details

@@ -7,6 +7,19 @@ from typing import Dict, Any
 from config.settings import DEBUG_MODE
 from config.templates import PRESET_TEMPLATES, TEMPLATE_COLORS
 from models.dataclasses import StreamerConfig, ThemeConfig, TemplateConfig, ServerStats
+from discord import app_commands
+
+def get_running_bot():
+    """Retorna instância do bot atualmente em execução"""
+    import sys
+    main_mod = sys.modules.get("__main__")
+    if main_mod and hasattr(main_mod, "bot"):
+        return main_mod.bot
+    try:
+        from bot import bot as running_bot
+        return running_bot
+    except Exception:
+        return None
 
 def log(message: str, level: str = "INFO"):
     """Sistema de log simples"""
@@ -18,16 +31,29 @@ def debug_log(message: str):
     if DEBUG_MODE:
         log(message, "DEBUG")
 
+def is_admin_or_mod():
+    """Check decorator para limitar comandos a moderadores"""
+    async def predicate(interaction: discord.Interaction) -> bool:
+        perms = interaction.user.guild_permissions
+        return perms.manage_guild or perms.administrator
+
+    return app_commands.check(predicate)
+
 def format_template(template: str, clip: dict, streamer_name: str, **kwargs) -> str:
     """Formata template com dados do clip"""
+    clip_url = clip.get("url", "")
+    if clip_url:
+        # Envolver URL em <> para evitar preview duplicado no Discord
+        clip_url = f"<{clip_url}>"
+
     replacements = {
         "{title}": clip.get("title", "Clip sem título"),
         "{streamer}": streamer_name,
         "{creator}": clip.get("creator_name", "Desconhecido"),
         "{views}": str(clip.get("view_count", 0)),
         "{duration}": f"{clip.get('duration', 0):.1f}s",
-        "{url}": clip.get("url", ""),
-        **kwargs
+        "{url}": clip_url,
+        **kwargs,
     }
     
     result = template
@@ -36,18 +62,26 @@ def format_template(template: str, clip: dict, streamer_name: str, **kwargs) -> 
     
     return result
 
-def format_live_template(template: dict, streamer_name: str, username: str) -> discord.Embed:
+def format_live_template(
+    template: dict,
+    streamer_name: str,
+    username: str,
+    game_name: str = "",
+    thumbnail_url: str = ""
+) -> discord.Embed:
     """Formata template de live com estilos personalizados"""
     timestamp = int(datetime.now().timestamp())
     
     replacements = {
         "{streamer}": streamer_name,
         "{username}": username,
-        "{timestamp}": str(timestamp)
+        "{timestamp}": str(timestamp),
+        "{game}": game_name,
+        "{thumbnail}": thumbnail_url,
     }
     
-    title = template["title"]
-    description = template["description"]
+    title = template.get("embed_title", template.get("title", ""))
+    description = template.get("embed_description", template.get("description", ""))
     
     # Aplicar substituições
     for placeholder, value in replacements.items():
@@ -57,7 +91,9 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
     # Determinar qual template está sendo usado
     template_key = "simples"  # padrão
     for key, tmpl in PRESET_TEMPLATES["lives"].items():
-        if tmpl["title"] == template["title"] and tmpl["description"] == template["description"]:
+        tmpl_title = tmpl.get("embed_title", tmpl.get("title"))
+        tmpl_desc = tmpl.get("embed_description", tmpl.get("description"))
+        if tmpl_title == title and tmpl_desc == description:
             template_key = key
             break
     
@@ -102,6 +138,10 @@ def format_live_template(template: dict, streamer_name: str, username: str) -> d
         embed.add_field(name="✨ Vibe", value="Relaxante", inline=True)
         embed.add_field(name="🌙 Mood", value="Chill", inline=True)
         embed.set_footer(text="Momento zen 🌙✨", icon_url="https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-70x70.png")
+
+    if thumbnail_url:
+        clean_thumb = thumbnail_url.replace("{width}", "1280").replace("{height}", "720")
+        embed.set_image(url=clean_thumb)
     
     return embed
 
@@ -118,16 +158,16 @@ def create_clip_embed(clip: dict, streamer_config: StreamerConfig, theme: ThemeC
     embed = discord.Embed(
         title=title,
         description=description if template.embed_description else None,
-        url=clip.get("url"),
         color=theme.color,
+        url=clip.get("url", ""),
         timestamp=datetime.fromisoformat(clip.get("created_at", "").replace("Z", "+00:00"))
     )
 
     # Campos baseados no estilo
     if theme.style == "minimalista":
-        embed.add_field(name="📺", value=display_name, inline=True)
-        if theme.show_details:
-            embed.add_field(name="👀", value=str(clip.get("view_count", 0)), inline=True)
+        # No estilo minimalista nenhuma informação adicional deve aparecer
+        # apenas o título/descrição já fornecidos no template
+        pass
     
     elif theme.style == "detalhado":
         embed.add_field(name="📺 Canal", value=display_name, inline=True)

@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 from utils.twitch_api import get_twitch_token, get_broadcaster_id, parse_twitch_username
 from utils.cache import save_cache
-from utils.helpers import log
+from utils.helpers import log, is_admin_or_mod
 from config.settings import *
 from models.dataclasses import *
 
@@ -14,6 +14,7 @@ async def setup_commands(bot):
     """Registra comandos de configuração"""
     
     @bot.tree.command(name="twitch-setup", description="Adiciona um streamer para monitoramento")
+    @is_admin_or_mod()
     async def setup_command(
         interaction: discord.Interaction,
         canal_twitch: str,

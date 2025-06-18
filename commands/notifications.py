@@ -9,22 +9,31 @@ from config.settings import *
 from models.dataclasses import *
 from utils.cache import save_cache
 from utils.twitch_api import parse_twitch_username
+from utils.helpers import is_admin_or_mod
 
 async def notification_commands(bot):
     """Registra comandos de notificações"""
 
-    def format_live_template(template: dict, streamer_name: str, username: str) -> discord.Embed:
+    def format_live_template(
+        template: dict,
+        streamer_name: str,
+        username: str,
+        game_name: str = "",
+        thumbnail_url: str = "",
+    ) -> discord.Embed:
         """Formata template de live com estilos personalizados"""
         timestamp = int(datetime.now().timestamp())
         
         replacements = {
             "{streamer}": streamer_name,
             "{username}": username,
-            "{timestamp}": str(timestamp)
+            "{timestamp}": str(timestamp),
+            "{game}": game_name,
+            "{thumbnail}": thumbnail_url,
         }
         
-        title = template["title"]
-        description = template["description"]
+        title = template.get("embed_title", template.get("title", ""))
+        description = template.get("embed_description", template.get("description", ""))
         
         # Aplicar substituições
         for placeholder, value in replacements.items():
@@ -43,7 +52,9 @@ async def notification_commands(bot):
         # Determinar qual template está sendo usado
         template_key = "simples"  # padrão
         for key, tmpl in PRESET_TEMPLATES["lives"].items():
-            if tmpl["title"] == template["title"] and tmpl["description"] == template["description"]:
+            tmpl_title = tmpl.get("embed_title", tmpl.get("title"))
+            tmpl_desc = tmpl.get("embed_description", tmpl.get("description"))
+            if tmpl_title == title and tmpl_desc == description:
                 template_key = key
                 break
         
@@ -88,14 +99,19 @@ async def notification_commands(bot):
             embed.add_field(name="✨ Vibe", value="Relaxante", inline=True)
             embed.add_field(name="🌙 Mood", value="Chill", inline=True)
             embed.set_footer(text="Momento zen 🌙✨", icon_url="https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-70x70.png")
+
+        if thumbnail_url:
+            clean_thumb = thumbnail_url.replace("{width}", "1280").replace("{height}", "720")
+            embed.set_image(url=clean_thumb)
         
         return embed
 
     class LiveTemplateSelect(discord.ui.Select):
-        def __init__(self, streamer_config: StreamerConfig, channel: discord.TextChannel, enable: bool):
+        def __init__(self, streamer_config: StreamerConfig, channel: discord.TextChannel, enable: bool, message: str):
             self.streamer_config = streamer_config
             self.channel = channel
             self.enable = enable
+            self.message = message
             
             options = []
             for key, template in PRESET_TEMPLATES["lives"].items():
@@ -123,6 +139,7 @@ async def notification_commands(bot):
             self.streamer_config.live_notifications = self.enable
             self.streamer_config.live_channel = self.channel.id if self.enable else 0
             self.streamer_config.live_template = selected_template_key
+            self.streamer_config.live_message = self.message
             
             save_cache()
             
@@ -137,9 +154,17 @@ async def notification_commands(bot):
             embed.add_field(name="📺 Status", value="✅ Ativado", inline=True)
             embed.add_field(name="📍 Canal", value=self.channel.mention, inline=True)
             embed.add_field(name="🎨 Template", value=selected_template["name"], inline=True)
+            if self.message:
+                embed.add_field(name="💬 Mensagem", value=self.message, inline=False)
             
             # Mostrar preview do template com estilo correto
-            preview_embed = format_live_template(selected_template, display_name, self.streamer_config.username)
+            preview_embed = format_live_template(
+                selected_template,
+                display_name,
+                self.streamer_config.username,
+                game_name="Jogo Exemplo",
+                thumbnail_url="https://static-cdn.jtvnw.net/previews-ttv/live_user_example-{width}x{height}.jpg",
+            )
             preview_embed.title = f"📋 Preview: {preview_embed.title}"
             
             # Manter a cor original do template no preview
@@ -156,16 +181,18 @@ async def notification_commands(bot):
             await interaction.followup.send(content="**🎨 Preview do template escolhido:**", embed=preview_embed)
 
     class LiveTemplateView(discord.ui.View):
-        def __init__(self, streamer_config: StreamerConfig, channel: discord.TextChannel, enable: bool):
+        def __init__(self, streamer_config: StreamerConfig, channel: discord.TextChannel, enable: bool, message: str):
             super().__init__(timeout=60)
-            self.add_item(LiveTemplateSelect(streamer_config, channel, enable))
+            self.add_item(LiveTemplateSelect(streamer_config, channel, enable, message))
 
     @bot.tree.command(name="live-notifications", description="Configura notificações de live para um streamer específico")
+    @is_admin_or_mod()
     async def notificacoes_command(
         interaction: discord.Interaction,
         streamer: str,
         ativar: bool = True,
-        canal_notificacao: discord.TextChannel = None
+        canal_notificacao: discord.TextChannel = None,
+        mensagem_custom: str = "",
     ):
         """Configura notificações de live para streamer específico"""
         server_id = interaction.guild.id
@@ -173,7 +200,7 @@ async def notification_commands(bot):
         if server_id not in server_streamers or not server_streamers[server_id]:
             embed = discord.Embed(
                 title="❌ Nenhum Streamer",
-                description="Use `/setup` para adicionar streamers primeiro.",
+                description="Use `/twitch-setup` para adicionar streamers primeiro.",
                 color=0xff0000
             )
             await interaction.response.send_message(embed=embed)
@@ -220,9 +247,12 @@ async def notification_commands(bot):
         
         # Mostrar seletor de templates
         display_name = streamer_config.nickname or streamer_config.username
+        desc = f"Selecione como as notificações de **{display_name}** serão exibidas em {canal_notificacao.mention}:"
+        if mensagem_custom:
+            desc += f"\n\nMensagem: {mensagem_custom}"
         embed = discord.Embed(
             title="🎨 Escolha um Template para Lives",
-            description=f"Selecione como as notificações de **{display_name}** serão exibidas em {canal_notificacao.mention}:",
+            description=desc,
             color=0x9146FF
         )
         
@@ -234,5 +264,5 @@ async def notification_commands(bot):
         
         embed.add_field(name="📋 Templates Disponíveis", value="\n".join(template_list), inline=False)
         
-        view = LiveTemplateView(streamer_config, canal_notificacao, ativar)
+        view = LiveTemplateView(streamer_config, canal_notificacao, ativar, mensagem_custom)
         await interaction.response.send_message(embed=embed, view=view)
